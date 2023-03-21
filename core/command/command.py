@@ -214,10 +214,6 @@ class ServerCommand(object):
         from .arg_processors import arg_processor_from_key
         from .result_processors import result_processor_from_key
 
-        if hasattr(function, 'hidden'):
-            if function.hidden:
-                return None
-
         attrs = [
             'return_type',
             'arg_types',

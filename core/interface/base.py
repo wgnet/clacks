@@ -86,7 +86,7 @@ class ServerInterface(object):
             if self.ONLY_REGISTER_DECORATED_COMMANDS:
                 if not ServerCommand.is_decorated(value):
                     continue
-
+            
             for attr in self.COMMON_ATTRIBUTES:
                 if hasattr(value, attr):
                     val = getattr(value, attr)
@@ -99,9 +99,10 @@ class ServerInterface(object):
                 elif not hasattr(value, attr):
                     value.__dict__[attr] = self.COMMON_ATTRIBUTES[attr]
 
-            # -- if methods have been decorated, use that decoration
-            cmd = ServerCommand.construct(interface=self, function=value)
-            if cmd is not None:
-                value = cmd
+            # -- server interfaces should not register hidden commands
+            if hasattr(value, 'hidden') and getattr(value, 'hidden'):
+                continue
 
+            # -- Construct a server command, extracting any decorated information that might exist.
+            value = ServerCommand.construct(interface=self, function=value)
             server.register_command(key=key, _callable=value)
