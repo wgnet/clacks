@@ -83,7 +83,7 @@ class TestServerCommands(unittest.TestCase):
             return True
 
         command = clacks.ServerCommand(interface=self.server, _callable=doc_test)
-        value = command.help(verbose=True)
+        command.help(verbose=True)
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_create_bad_command(self):

@@ -549,13 +549,13 @@ class ServerBase(object):
             return response
 
         except Exception as e:
-            self.logger.exception(traceback.format_exc())
-                
+            tb = traceback.format_exc()
+
             return Response(
                 header_data={'Content-Type': question.header_data.get('Content-Type', 'text/json')},
                 response=None,
                 code=error_code_from_error(e),
-                tb=e,
+                tb=tb,
             )
 
     # ------------------------------------------------------------------------------------------------------------------

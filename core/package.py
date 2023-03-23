@@ -200,7 +200,17 @@ class Response(Package):
     @property
     def traceback(self):
         # type () -> str
-        return self.payload.get('tb')
+        value = self.payload.get('tb')
+
+        if value is None:
+            return None
+
+        try:
+            b = bytearray.fromhex(value)
+            result = b.decode('unicode_escape')
+            return result
+        except:
+            return value
 
     # ------------------------------------------------------------------------------------------------------------------
     @traceback.setter
@@ -219,7 +229,8 @@ class Response(Package):
             key = 'exception'
 
         self.traceback_type = key
-        self.payload['tb'] = repr(value)
+
+        self.payload['tb'] = repr(value).encode('utf-8').hex()
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
@@ -284,3 +295,11 @@ class Response(Package):
     @info.setter
     def info(self, value):
         self.payload['info'] = value
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def raise_for_status(self):
+        typ = Exception
+        if self.traceback_type is not None:
+            typ = self.traceback_type
+
+        raise typ(self.traceback)

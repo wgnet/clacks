@@ -47,7 +47,7 @@ from .core.errors import error_from_key, register_error_type, key_from_error_typ
 from .core.proxy import acquire_proxy
 from .core.proxy import ClientProxyBase
 
-from .core.server import ServerBase
+from .core.server import ServerBase, ServerClient
 from .core.handler import BaseRequestHandler, SimpleRequestHandler, JSONHandler, XMLHandler
 from .core.interface import ServerInterface, register_server_interface_type, register_proxy_interface_type
 from .core.marshaller import BasePackageMarshaller, SimplePackageMarshaller, PickleMarshaller, JSONMarshaller

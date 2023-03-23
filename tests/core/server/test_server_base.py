@@ -160,3 +160,18 @@ class TestServerBase(ClacksTestCase):
         assert len(self.server.socket_addresses) == 1
         list(self.server.sockets.keys())[0].close()
         assert len(self.server.socket_addresses) == 0
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def test_crash_server(self):
+        def crash_server():
+            raise Exception
+
+        self.server.register_command('crash_server', crash_server)
+        response = self.client.crash_server()
+
+        try:
+            response.raise_for_status()
+            self.fail()
+
+        except Exception:
+            pass

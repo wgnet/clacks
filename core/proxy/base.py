@@ -284,10 +284,9 @@ class ClientProxyBase(object):
         header_data, response = self.send(question, timeout=timeout)
 
         if response is not None and response.traceback:
-            traceback_type = Exception
-            if response.traceback_type is not None:
-                traceback_type = response.traceback_type
-            raise traceback_type(response.traceback)
+            self.logger.exception(
+                f'Response to question {question} raised an exception! Exception:\n{response.traceback}'
+            )
 
         return response
 
