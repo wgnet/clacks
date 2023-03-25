@@ -226,45 +226,113 @@ def server_command_example(value, other_value):
 And registered like so:
 
 ```python
-server = clacks.ServerBase('My Server')
 server.register_command('server_command_example', server_command_example)
 ```
 
-However, note that since we provide an arbitrary string as the lookup key for the server command, one can theoretically register a command under a different key:
+However, note that since we provide an arbitrary string as the lookup key for the server command, one can theoretically
+register a command under a different key:
 
 ```python
 server.register_command('this_works_too', server_command_example)
 ```
 
-**note**, that every mechanism that makes use of lookup keys in `clacks` enforces a string object-name-compatible validation check. This means that only alphanumeric characters (no whitespaces) are allowed to be used for server command keys.
+**note**, that every mechanism that makes use of lookup keys in `clacks` enforces a string object-name-compatible 
+validation check. This means that only alphanumeric characters (no whitespaces) are allowed to be used for server 
+command keys.
 
-This is done to ensure that servers can acquire command instances using their __getattr__ method, allowing commands to be retrieved using the regular "object.property" mechanism, which is designed for use by sibling server interfaces.
+This is done to ensure that servers can acquire command instances using their __getattr__ method, allowing commands
+to be retrieved using the regular "object.property" mechanism, which is designed for use by sibling server interfaces.
 
 ##### Command Decorators
 
-`clacks` ships with a set of command decorators we can use to decorate `server commands`, that tell the server something about them. In and of themselves, these decorators provide little more than convenience, but they do open the door to nice, but otherwise difficult features, such as argument type enforcement.
+`clacks` ships with a set of command decorators we can use to decorate `server commands`, that tell the server something
+about them. In and of themselves, these decorators provide little more than convenience, but they do open the 
+door to nice, but otherwise difficult features, such as argument type enforcement.
 
-Additionally, `ServerCommands` make use of these decorators to construct the output of their `help()` method, which a developer can call to find out more about the method. This provides a nice utility to create accessible APIs, especially when using clacks in the context of REST APIs.
+Additionally, `ServerCommands` make use of these decorators to construct the output of their `help()` method, 
+which a developer can call to find out more about the method. This provides a nice utility to create accessible APIs, 
+especially when using clacks in the context of REST APIs.
 
-The available decorators are as follows:
+The available standard decorators are as follows:
 
 ```aka```
 
-the **aka**, or "also known as" decorator tells the server that this command should be exposed under more than one name. This allows the developer to expose the same methods under different names, to make it easier to implement features for APIs and protocols that enforce their own rules for method names (like the HTTP protocol, where all command names are upper case, like POST, GET, PUT etc...)
+the **aka**, or "also known as" decorator tells the server that this command should be exposed under more than one name.
+This allows the developer to expose the same methods under different names, to make it easier to implement features
+for APIs and protocols that enforce their own rules for method names 
+(like the HTTP protocol, where all command names are upper case, like POST, GET, PUT etc...)
 
 ```fka```
 
-**fka**, or "formerly known as" is the previous decorator's antithesis; methods decorated with this decorator can tell the server to register the given aliases as fully functional commands, but any commands called under those names will receive a logging warning that the invoked command is due to be deprecated. This makes it slightly easier to implement servers with pending API changes.
+**fka**, or "formerly known as" is the previous decorator's antithesis; methods decorated with this decorator
+can tell the server to register the given aliases as fully functional commands, but any commands called 
+under those names will receive a logging warning that the invoked command is due to be deprecated. 
+This makes it slightly easier to implement servers with pending API changes.
 
 ```takes```
 
+**takes** is simply a type hinting mechanism. It lets the ServerCommand know which type of argument to expect for each
+named argument provided. This can be achieved using standard Python3 type hinting as well, but for older implementations
+this is a nice convenience method.
+
 ```returns```
+
+Another type hinting method; this one just declares the type of the returned value(s) for the server command.
 
 ```private```
 
+**private** commands are not accessible on the server as publicly callable commands. However, they may be called
+by sibling interfaces parented to the same server. This allows for the creation of methods that can provide utility
+to the interface developer without needing to worry about its visibility.
+
+It is worth mentioning that private methods are _visible_ to the user. They are registered as full ServerCommand 
+instances, but calling them remotely results in an error.
+
+```hidden```
+
+**hidden** commands go one step further than **private** ones. Hidden commands are only visible to the interface that
+declares them, and are not registered as ServerCommands, and therefore not easily accessible on the server.
+
+#### Argument and Result Processors
+
+The `process_arguments` and `process_result` decorators deserve their own section. They provide what effectively amounts
+to pre-and-post-processing of function input and output. This can be quite powerful, as it enables the user to build
+things like filtering and validation mechanisms.
+
+Argument and result processors, can, for example, provide type hint enforcement, result type enforcement, argument
+pre-processing (such as taking incoming JSON data and converting it to keyword arguments), and other types of 
+translation that make mass data handling a little easier.
+
 ```process_arguments```
 
+This decorator takes one argument; a list of callables. Each of these callables takes three arguments;
+the server command, the positional arguments (a list) and the keyword arguments (a dictionary) that were passed to the
+function when it was called.
+
+This allows a developer to interject into argument processing and change the arguments as they pass through.
+The expected result of the callable is a tuple of (list, dict) with the positional and keyword arguments as they should
+be passed on to the next processor, or to the server command itself.
+
+A typical argument processor looks a bit like this;
+
+```python
+def example_arg_processor(server_command, *args, **kwargs):
+    # -- do something to the arguments
+    return args, kwargs
+```
+
 ```process_result```
+
+Like argument processors, the result processor works the same, but more simply; it simply takes the server command and 
+its returned result, and is able to change that result in some way by returning its own.
+
+A typical result processor looks like this;
+
+```python
+def example_result_processor(server_command, result):
+    # -- do something to the result 
+    return result
+```
 
 ---
 
@@ -292,14 +360,21 @@ HTML, RPyC, XML, JSON, and others that govern the logistics of data transfer are
 
 A typical handler implements only one important mechanism, formed of two keys components:
 
-- It pre-declares to the receiving handler some metadata (like the number of bytes) about the content it is about to send. This allows the receiver to modify its behaviour based on the expected incoming data.
-- It implements the key components of the major data transfer protocols, like HTTP or XMLRPC. This is usually done in the form of some kind of recognized data structure in the header buffer, followed by a delimiter.
+- It pre-declares to the receiving handler some metadata (like the number of bytes) about the content it is about to 
+  send. This allows the receiver to modify its behaviour based on the expected incoming data.
 
-In some cases, no delimiter is used; instead, a header is expected to have a certain fixed size, say, 64 bytes for example. The sending handler is expected to pad any empty space, while the receiver will blindly receive that many bytes. In most cases, the header is the primary method by which we teach `clacks` to "speak" different protocols.
+- It implements the key components of the major data transfer protocols, like HTTP or XMLRPC. 
+  This is usually done in the form of some kind of recognized data structure in the header buffer, followed 
+  by a delimiter.
+
+In some cases, no delimiter is used; instead, a header is expected to have a certain fixed size, say, 64 bytes for 
+example. The sending handler is expected to pad any empty space, while the receiver will blindly receive that 
+many bytes. In most cases, the header is the primary method by which we teach `clacks` to "speak" different protocols.
 
 ```
 Note: there are currently no available clacks mechanisms to detect a handler type from a port.
-If you try to make a proxy talk to a server using different handlers, you will simply get a low-level handler or marshaller error.
+If you try to make a proxy talk to a server using different handlers, you will simply get a low-level handler
+or marshaller error.
 
 The same notice is valid for proxy/server combinations with mismatching marshallers, even if their handlers match.
 ```
@@ -316,20 +391,28 @@ clacks servers can behave as multiple server types as once; by the time the pack
 the data has been standardized into a bog-standard Dictionary, which acts as a keyword argument container for the method
 the user wants to call.
 
-`Marshallers` are the bread and butter of how data makes it from a proxy to a server and vice versa: they turn Package instances into Bytes, and Back.
+`Marshallers` are the bread and butter of how data makes it from a proxy to a server and vice versa: 
+they turn Package instances into Bytes, and Back.
 
 ```
-Note: Adapters can implement post- and pre-buffer-compile steps that could be used to implement content encryption, while leaving header data unencrypted. Additionally, this step could be used to supply compression, which could reduce the strain on socket traffic at the expense of computation on the server.
-```
-
-```
-While it is possible to send content of any size, it is strongly discouraged to use marshallers to transfer large files from a proxy to a server. The marshaller could be prone to data corruption, depending on its implementation, and it would create a large computational overhead to compile and send a buffer that large.
-
-Instead, clacks is shipped with a "file_io" interface that implements proxy/client streaming sockets which use streaming to avoid hogging memory on the server machine, and which does not risk data corruption, as the data is transfered as raw bytes, unencoded.
+Note: Adapters can implement post- and pre-buffer-compile steps that could be used to implement content encryption, 
+while leaving header data unencrypted. Additionally, this step could be used to supply compression, which could reduce 
+the strain on socket traffic at the expense of computation on the server.
 ```
 
 ```
-Note: the developer is expected to know which marshaller type to use when connecting a proxy to a server. There are currently no mechanisms to allow clacks to detect the handler/marshaller setup of a particular port.
+While it is possible to send content of any size, it is strongly discouraged to use marshallers to transfer 
+large files from a proxy to a server. The marshaller could be prone to data corruption, depending on its implementation,
+ and it would create a large computational overhead to compile and send a buffer that large.
+
+Instead, clacks is shipped with a "file_io" interface that implements proxy/client streaming sockets which use 
+streaming to avoid hogging memory on the server machine, and which does not risk data corruption, as the data
+is transfered as raw bytes, unencoded.
+```
+
+```
+Note: the developer is expected to know which marshaller type to use when connecting a proxy to a server. 
+There are currently no mechanisms to allow clacks to detect the handler/marshaller setup of a particular port.
 ```
 
 ---

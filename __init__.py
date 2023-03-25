@@ -36,6 +36,10 @@ from .core.utils import quick_listening_socket
 
 from .core.command import ServerCommand
 from .core.command import decorators
+
+from .core.command.decorators import takes, process_arguments, process_result
+from .core.command.decorators import returns, returns_status_code, aka, fka, hidden, private
+
 from .core.command import arg_processors, result_processors
 from .core.command import register_arg_processor, register_result_processor
 from .core.command import arg_processor_from_key, key_from_arg_processor
