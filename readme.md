@@ -173,7 +173,10 @@ Servers implement commands that trigger the behaviour triggered by Questions.
 Servers are expected to respond with Answers for the Handlers to send back.
 ```
 
-Implementing a server can be done without needing to override a single internal method. In most cases, overriding server methods should not be necessary; creating functionaly is all done using `interfaces`, so unless you wish to change or override a very low-level behaviour of how the server works, (like how it executes commands), you should not need to override any internal methods.
+Implementing a server can be done without needing to override a single internal method. In most cases, overriding server
+methods should not be necessary; creating functionality is all done using `interfaces`, so unless you wish to change 
+or override a very low-level behaviour of how the server works, (like how it executes commands), 
+you should not need to override any internal methods.
 
 ```python
 import clacks
@@ -194,21 +197,38 @@ server.start(blocking=False)
 
 #### Interfaces
 
-`Interfaces` are the convenience path that `clacks` provides for developers to quickly scale the functionality available to a given server, while allowing for easy re-use of that functionality, as well.
+`Interfaces` are the convenience path that `clacks` provides for developers to quickly scale the functionality 
+available to a given server, while allowing for easy re-use of that functionality, as well.
 
-`Interfaces` are relatively simple, mostly self-contained (though this is not a defining property) collections of functions that a server can make use of. Some of these are exposed as publicly-accessible `ServerCommands`, while others, decorated with the `@clacks.private` decorator, can only be used by the server and its interfaces, while being inaccessible to clients.
+`Interfaces` are relatively simple, mostly self-contained (though this is not a defining property) collections 
+of functions that a server can make use of. Some of these are exposed as publicly-accessible `ServerCommands`, 
+while others, decorated with the `@clacks.private` decorator, can only be used by the server and its interfaces, 
+while being inaccessible to clients.
 
-When an `interface` is registered, the server will iterate over all the keys in its `__dict__` attribute, and register any values it finds that are callable as functions, as `ServerCommands`. This includes commands decorated with the `private` decorator, which are still registered as fully valid `ServerCommand` instances for use by the server itself and any sibling interfaces.
+When an `interface` is registered, the server will iterate over all the keys in its `__dict__` attribute, 
+and register any values it finds that are callable as functions, as `ServerCommands`. This includes commands 
+decorated with the `private` decorator, which are still registered as fully valid `ServerCommand` instances for use 
+by the server itself and any sibling interfaces.
 
-`Interfaces` are expected to internalize their functionality as much as is feasible, though interface-inter-dependencies are possible. The developer is expected to manage these, as the framework does not (as yet) implement any functionality to expose a list of dependent interfaces when registering an interface.
+`Interfaces` are expected to internalize their functionality as much as is feasible, though interface-inter-dependencies
+are possible. The developer is expected to manage these, as the framework does not (as yet) implement any 
+functionality to expose a list of dependent interfaces when registering an interface.
 
 ---
 
 ### Server Commands
 
-The `ServerCommand` class is where `clacks`' functionality is implemented. While `interfaces` might provide them in the first place, `ServerCommand`s are how the server knows what to do with them. For each `interface` a `server` registers, it fetches all that interface's callable methods, and registers them to the server as a `ServerCommand` instance, along with any annotations the developer may have provided in the form of `command decorators`.
+The `ServerCommand` class is where `clacks`' functionality is implemented. While `interfaces` might provide them 
+in the first place, `ServerCommand`s are how the server knows what to do with them. For each `interface` a `server` 
+registers, it fetches all that interface's callable methods, and registers them to the server as a `ServerCommand` 
+instance, along with any annotations the developer may have provided in the form of `command decorators`.
 
-These annotations are optional; a developer can implement a perfectly functional interface without ever decorating a single method. However, due to the additional information these decorators can provide, a developer can leverage them to provide otherwise tricky-to-implement behaviour. The most common and obvious use case for this behaviour is type checking and enforcement; using `ServerCommand` decorations, we can easily implement an argument processor / return value processor that raises an exception if the incoming or outgoing data does not follow a particular rule, like it needing to be of a very specific variable type.
+These annotations are optional; a developer can implement a perfectly functional interface without ever decorating a 
+single method. However, due to the additional information these decorators can provide, a developer can leverage them 
+to provide otherwise tricky-to-implement behaviour. The most common and obvious use case for this behaviour is type 
+checking and enforcement; using `ServerCommand` decorations, we can easily implement an argument processor / return 
+value processor that raises an exception if the incoming or outgoing data does not follow a particular rule, like it 
+needing to be of a very specific variable type.
 
 A typical server command may be implemented as follows:
 
