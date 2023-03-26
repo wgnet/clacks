@@ -1,3 +1,5 @@
+```pip install git+https://github.com/MaVCArt/clacks.git@main```
+
 # clacks
 
 ---
