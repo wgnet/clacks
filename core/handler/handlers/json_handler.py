@@ -54,7 +54,13 @@ class JSONHandler(BaseRequestHandler):
         # type: (str, Package, int) -> bytes
         if not isinstance(payload, Question):
             raise ValueError('Expected Question, got %s' % payload)
-        return json.dumps(self.get_outgoing_header_data(transaction_id, payload, expected_content_length), sort_keys=True)
+
+        result = json.dumps(
+            self.get_outgoing_header_data(transaction_id, payload, expected_content_length),
+            sort_keys=True
+        )
+
+        return result.encode('utf-8')
 
     # ------------------------------------------------------------------------------------------------------------------
     def decode_response_header(self, transaction_id, header):
@@ -70,9 +76,12 @@ class JSONHandler(BaseRequestHandler):
         # type: (str, Response, int) -> bytes
         if not isinstance(payload, Response):
             raise ValueError('Expected Response, got %s' % payload)
-        return json.dumps(
+
+        response = json.dumps(
             self.get_outgoing_header_data(transaction_id, payload, expected_content_length), sort_keys=True
         )
+
+        return response.encode('utf-8')
 
 
 register_handler_type('json', JSONHandler)

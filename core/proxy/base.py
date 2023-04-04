@@ -292,7 +292,7 @@ class ClientProxyBase(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     def timed_question(self, command, timeout=5.0, *args, **kwargs):
-        # type: (str, float, typing.Union[list, None], typing.Union[dict, None]) -> typing.Union[Response]
+        # type: (str, float, typing.Union[list, None], typing.Union[dict, None]) -> typing.Union[Response, None]
         question = Question(
             dict(Connection='keep-alive'),
             command,
