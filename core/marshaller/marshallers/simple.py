@@ -94,7 +94,7 @@ def encode_package(data, encoding):
             result += '%s/%s/%s\n' % (value.__class__.__name__, key, _encode(json.dumps(value, sort_keys=True)))
 
         else:
-            result += '%s/%s/%s\n' % (value.__class__.__name__, key, _encode(value))
+            raise TypeError(f'Could not encode class type {value.__class__.__name__}')
 
     return bytes(result, encoding)
 

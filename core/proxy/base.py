@@ -183,12 +183,19 @@ class ClientProxyBase(object):
         return functools.partial(self.question, key)
 
     # ------------------------------------------------------------------------------------------------------------------
+    def _initialize(self):
+        self.handler.register_server(self)
+        self.handler._initialize()
+
+    # ------------------------------------------------------------------------------------------------------------------
     def connect(self):
         """
         Connect this proxy to the given address.
 
         :return: None
         """
+        self._initialize()
+
         retries = 1
         while not self.connected and retries <= self.connection_retries:
             try:
@@ -284,9 +291,7 @@ class ClientProxyBase(object):
         header_data, response = self.send(question, timeout=timeout)
 
         if response is not None and response.traceback:
-            self.logger.exception(
-                f'Response to question {question} raised an exception! Exception:\n{response.traceback}'
-            )
+            raise response.traceback_type(response.traceback)
 
         return response
 
