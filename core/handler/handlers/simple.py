@@ -68,6 +68,7 @@ class SimpleRequestHandler(BaseRequestHandler):
         # type: (str, Response, int) -> bytes
         if not isinstance(payload, Response):
             raise ValueError('Expected Response, got %s' % payload)
+
         content_length = self.get_content_length(transaction_id, payload)
         if content_length != expected_content_length:
             raise ValueError('Encoded content length and expected content length are not matching!')

@@ -224,12 +224,11 @@ class Response(Package):
             value = tb_type(value)
 
         try:
-            key = key_from_error_type(type(value))
-        except ValueError:
-            key = 'exception'
+            key = key_from_error_type(value)
+        except KeyError:
+            key = None
 
         self.traceback_type = key
-
         self.payload['tb'] = repr(value).encode('utf-8').hex()
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -238,7 +237,9 @@ class Response(Package):
         # type() -> str
         tb_type = self.payload.get('tb_type')
         if not tb_type:
-            return None
+            return Exception
+        if isinstance(tb_type, type):
+            return tb_type
         return error_from_key(tb_type)
 
     # ------------------------------------------------------------------------------------------------------------------

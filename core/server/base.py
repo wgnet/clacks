@@ -489,8 +489,9 @@ class ServerBase(object):
                 header_data=header_data,
                 response=None,
                 code=ReturnCodes.BAD_QUESTION,
-                tb=str(e),
-                info=dict()
+                tb=exc_info,
+                info=dict(),
+                tb_type=type(e),
             )
 
             self.logger.exception('Handler %s Failed loading question from header %s with data %s' % (
@@ -556,6 +557,7 @@ class ServerBase(object):
                 response=None,
                 code=error_code_from_error(e),
                 tb=tb,
+                tb_type=type(e),
             )
 
     # ------------------------------------------------------------------------------------------------------------------

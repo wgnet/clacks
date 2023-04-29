@@ -73,7 +73,7 @@ class TestCommandProcessors(ClacksTestCase):
     # ------------------------------------------------------------------------------------------------------------------
     def test_bad_command_processor(self):
         def bad_command_processor(server_command, *args, **kwargs):
-            raise Exception()
+            raise Exception
 
         @process_arguments([bad_command_processor])
         def foobar(*args, **kwargs):

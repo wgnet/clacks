@@ -167,10 +167,9 @@ class TestServerBase(ClacksTestCase):
             raise Exception
 
         self.server.register_command('crash_server', crash_server)
-        response = self.client.crash_server()
 
         try:
-            response.raise_for_status()
+            self.client.crash_server()
             self.fail()
 
         except Exception:

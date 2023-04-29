@@ -93,6 +93,15 @@ def encode_package(data, encoding):
         elif isinstance(value, (list, tuple)):
             result += '%s/%s/%s\n' % (value.__class__.__name__, key, _encode(json.dumps(value, sort_keys=True)))
 
+        elif isinstance(value, bool):
+            result += 'bool/%s/%s\n' % (key, _encode(str(value)))
+
+        elif isinstance(value, int):
+            result += 'int/%s/%s\n' % (key, _encode(str(value)))
+
+        elif isinstance(value, float):
+            result += 'float/%s/%s\n' % (key, _encode(str(value)))
+
         else:
             raise TypeError(f'Could not encode class type {value.__class__.__name__}')
 
