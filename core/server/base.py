@@ -152,6 +152,20 @@ class ServerBase(object):
                     handler.register_adapter(adapter)
 
     # ------------------------------------------------------------------------------------------------------------------
+    def __getattr__(self, item):
+        if item in self.__dict__:
+            return self.__dict__[item]
+
+        if self.get_command(item):
+            return self.get_command(item)
+
+        for interface in self.interfaces.values():
+            if hasattr(interface, item):
+                return getattr(interface, item)
+
+        raise AttributeError
+
+    # ------------------------------------------------------------------------------------------------------------------
     def __repr__(self):
         # type: () -> str
         return '[%s] %s' % (self.__class__.__name__, self.identifier)
