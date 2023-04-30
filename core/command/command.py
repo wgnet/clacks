@@ -94,21 +94,15 @@ Once all information is gathered, including final return value, any exceptions e
 time, the Response package is constructed and returned to the server for handling.
 
 """
-import collections
 import logging
-import sys
+import collections
 
-from ..errors import ClacksBadArgProcessorOutputError
-from ..errors import ClacksBadCommandArgsError
-from ..errors import ClacksCommandIsPrivateError
-from ..errors import ClacksCommandUnexpectedReturnValueError
 from ..errors import ReturnCodes
 from ..package import Question, Response
-
-# -- python 3 does not have "unicode", but it does have "bytes".
-_unicode = bytes
-if sys.version_info.major == 2:
-    _unicode = unicode
+from ..errors import ClacksBadCommandArgsError
+from ..errors import ClacksCommandIsPrivateError
+from ..errors import ClacksBadArgProcessorOutputError
+from ..errors import ClacksCommandUnexpectedReturnValueError
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -129,6 +123,7 @@ class ServerCommand(object):
             arg_processors=None,
             result_processors=None,
             returns_status_code=False,
+            **kwargs
     ):
         if interface is None:
             raise ValueError('ServerCommand cannot be instanced as separate from a server or interface!')
@@ -159,6 +154,25 @@ class ServerCommand(object):
         self.result_processors = result_processors or list()
 
         self.accept_encoding = 'text/json'
+
+        # -- this feature allows the user to add extra attributes to their methods, allowing for custom decorators.
+        self.extra_attrs = dict()
+        if hasattr(self._callable, 'extra_attrs'):
+            extra_attrs = getattr(self._callable, 'extra_attrs')
+
+            if not isinstance(extra_attrs, dict):
+                raise TypeError(type(extra_attrs))
+
+            for key, value in extra_attrs.items():
+                self.extra_attrs[key] = value
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def __getattr__(self, item):
+        if item in self.__dict__:
+            return self.__dict__[item]
+        if item in self.extra_attrs:
+            return self.extra_attrs[item]
+        raise AttributeError
 
     # ------------------------------------------------------------------------------------------------------------------
     def __repr__(self):
@@ -238,14 +252,14 @@ class ServerCommand(object):
         if arg_types:
             converted = dict()
             for key, value in kwargs['arg_types'].items():
-                if not isinstance(value, (str, _unicode)):
+                if not isinstance(value, (str, bytes)):
                     converted[key] = value
                 else:
                     converted[key] = eval(value)
             kwargs['arg_types'] = converted
 
         if 'return_type' in kwargs:
-            if not isinstance(kwargs['return_type'], (str, _unicode)):
+            if not isinstance(kwargs['return_type'], (str, bytes)):
                 kwargs['return_type'] = kwargs['return_type']
             else:
                 kwargs['return_type'] = eval(kwargs['return_type'])
@@ -257,7 +271,7 @@ class ServerCommand(object):
             for proc in processors:
                 if callable(proc):
                     _processors.append(proc)
-                elif isinstance(proc, (str, _unicode)):
+                elif isinstance(proc, (str, bytes)):
                     _processors.append(arg_processor_from_key(proc))
 
             kwargs['arg_processors'] = _processors
@@ -269,7 +283,7 @@ class ServerCommand(object):
             for proc in processors:
                 if callable(proc):
                     _processors.append(proc)
-                elif isinstance(proc, (str, _unicode)):
+                elif isinstance(proc, (str, bytes)):
                     _processors.append(result_processor_from_key(proc))
 
             kwargs['result_processors'] = _processors

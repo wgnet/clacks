@@ -157,28 +157,6 @@ class ServerBase(object):
         return '[%s] %s' % (self.__class__.__name__, self.identifier)
 
     # ------------------------------------------------------------------------------------------------------------------
-    def __getattr__(self, item):
-        # type: (str) -> object
-        """
-        Overridden attribute getter magic method that helps to ensure commands can be called by calling them as
-        functions directly on the server instance. This helps with RPYC servers as well.
-
-        :param item: the name of the attribute to get
-        :type item: str
-
-        :return: Whatever value is returned by the attribute
-        :rtype: object
-        """
-        if self.get_command(item):
-            return self.get_command(item)
-
-        for interface in self.interfaces.values():
-            if hasattr(interface, item):
-                return getattr(interface, item)
-
-        raise AttributeError(item)
-
-    # ------------------------------------------------------------------------------------------------------------------
     @property
     def handlers(self):
         return list(self.handler_addresses.keys())
@@ -388,7 +366,7 @@ class ServerBase(object):
             adapter.server_post_remove_from_queue(*_args)
 
         if self.threaded_digest:
-            thread = threading.Thread(target=self._respond, args=_args)
+            thread = threading.Thread(target=self.__respond, args=_args)
             thread.daemon = True
             thread.start()
 
@@ -396,7 +374,7 @@ class ServerBase(object):
             self.queue_threads.append(thread)
 
         else:
-            self._respond(*_args)
+            self.__respond(*_args)
 
         self.busy = False
 
@@ -417,6 +395,25 @@ class ServerBase(object):
 
         root_logger = logging.getLogger()
         root_logger.addHandler(self.command_handler)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def __respond(self, handler, connection, transaction_id, header_data, data):
+        try:
+            self._respond(handler, connection, transaction_id, header_data, data)
+
+        except Exception as e:
+            tb = traceback.format_exc()
+
+            response = Response(
+                header_data={'Content-Type': header_data.get('Content-Type', 'text/json')},
+                response=None,
+                code=error_code_from_error(e),
+                tb=tb,
+                tb_type=type(e),
+            )
+
+            # -- the handler must respond, no matter what.
+            handler.respond(connection, transaction_id, response)
 
     # ------------------------------------------------------------------------------------------------------------------
     def _respond(self, handler, connection, transaction_id, header_data, data):
@@ -448,7 +445,19 @@ class ServerBase(object):
 
         self.command_handler.start()
 
-        response = self.digest(handler, connection, transaction_id, header_data, data)
+        try:
+            response = self.digest(handler, connection, transaction_id, header_data, data)
+
+        except Exception as e:
+            tb = traceback.format_exc()
+
+            response = Response(
+                header_data={'Content-Type': header_data.get('Content-Type', 'text/json')},
+                response=None,
+                code=error_code_from_error(e),
+                tb=tb,
+                tb_type=type(e),
+            )
 
         # -- inject warnings and errors
         response.errors += self.command_handler.errors
