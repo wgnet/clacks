@@ -50,6 +50,8 @@ class ServerBase(object):
     Clacks.
     """
 
+    REQUIRED_INTERFACES: list[str] = []
+
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self, identifier=None, start_queue=True, threaded_digest=False):
         # type: (typing.Union[str, None], bool, bool) -> None
@@ -97,6 +99,10 @@ class ServerBase(object):
         self.adapters = dict()
 
         self.command_handler = ServerCommandDigestLoggingHandler()
+
+        # -- register required interfaces on init
+        for key in self.REQUIRED_INTERFACES:
+            self.register_interface_by_key(key)
 
         if start_queue:
             self.start_queue()

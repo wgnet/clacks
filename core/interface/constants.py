@@ -27,6 +27,11 @@ server_interface_registry = {}
 
 
 # ----------------------------------------------------------------------------------------------------------------------
+def list_available_server_interface_types():
+    return sorted(list(set(server_interface_registry.keys())))
+
+
+# ----------------------------------------------------------------------------------------------------------------------
 def register_server_interface_type(key, interface_type, override=False):
     # type: (str, type, bool) -> None
     global server_interface_registry

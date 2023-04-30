@@ -54,6 +54,7 @@ from .core.proxy import ClientProxyBase
 from .core.server import ServerBase, ServerClient
 from .core.handler import BaseRequestHandler, SimpleRequestHandler, JSONHandler, XMLHandler
 from .core.interface import ServerInterface, register_server_interface_type, register_proxy_interface_type
+from .core.interface import list_available_server_interface_types
 from .core.marshaller import BasePackageMarshaller, SimplePackageMarshaller, PickleMarshaller, JSONMarshaller
 from .core.adapters import ServerAdapterBase, adapter_from_key, register_adapter_type
 

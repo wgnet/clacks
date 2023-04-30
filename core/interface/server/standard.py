@@ -122,7 +122,7 @@ class StandardServerInterface(ServerInterface):
         :return: the list of interface types this server implements.
         :rtype: list
         """
-        return sorted(list([interface.key for interface in self.server.interfaces]))
+        return sorted(list(self.server.interfaces.keys()))
 
     # ------------------------------------------------------------------------------------------------------------------
     @takes({'interface_type': str})
