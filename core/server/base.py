@@ -50,7 +50,7 @@ class ServerBase(object):
     Clacks.
     """
 
-    REQUIRED_INTERFACES: list[str] = []
+    _REQUIRED_INTERFACES: list[str] = []
 
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self, identifier=None, start_queue=True, threaded_digest=False):
@@ -101,7 +101,7 @@ class ServerBase(object):
         self.command_handler = ServerCommandDigestLoggingHandler()
 
         # -- register required interfaces on init
-        for key in self.REQUIRED_INTERFACES:
+        for key in self._REQUIRED_INTERFACES:
             self.register_interface_by_key(key)
 
         if start_queue:
@@ -245,12 +245,12 @@ class ServerBase(object):
         # -- the following two blocks will lead to a recursive loop, though not an infinite one, as interfaces that
         # -- have already been registered will not be registered twice, and so interfaces can be dependent on each
         # -- other without causing a loop.
-        for value in interface.REQUIRED_INTERFACES:
+        for value in interface._REQUIRED_INTERFACES:
             if value in self.interfaces:
                 continue
             self.register_interface_by_key(value)
 
-        for value in interface.REQUIRED_ADAPTERS:
+        for value in interface._REQUIRED_ADAPTERS:
             if value in self.adapters:
                 continue
             self.register_adapter_by_key(value)

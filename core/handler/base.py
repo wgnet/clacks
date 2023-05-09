@@ -166,6 +166,13 @@ class BaseRequestHandler(object):
 
         :return: None
         """
+        if self.server is not None and server is not self.server and not isinstance(self.server, _DummyServer):
+            # -- raise this exception for safety - handlers really should not be registered on more than one server.
+            raise ValueError(
+                f'This handler is already registered to server {self.server}.'
+                '\nFor safety purposes, you should not register the same handler on more than one server!'
+            )
+
         self.server = server
 
     # ------------------------------------------------------------------------------------------------------------------
