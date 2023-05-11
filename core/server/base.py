@@ -150,8 +150,8 @@ class ServerBase(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     def __getattr__(self, item):
-        if item in self.__dict__:
-            return self.__dict__[item]
+        if item in dir(self):
+            return super(ServerBase, self).__getattribute__(item)
 
         if self.get_command(item):
             return self.get_command(item)
@@ -331,8 +331,11 @@ class ServerBase(object):
         :param handler: The handler we should make listen on the port.
         :type handler: BaseRequestHandler
 
-        :return: None
+        :return: tuple (host, port)
         """
+        if port == 0:
+            port = get_new_port(host)
+
         if not isinstance(host, (str, bytes)):
             raise TypeError('Expected string value for host argument, got %s!' % type(host))
 
@@ -356,6 +359,8 @@ class ServerBase(object):
 
         for adapter in self.adapters.values():
             handler.register_adapter(adapter)
+
+        return host, port
 
     # ------------------------------------------------------------------------------------------------------------------
     def tick_queue(self):

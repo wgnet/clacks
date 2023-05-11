@@ -24,7 +24,11 @@ class DeprecationWarningsAdapter(ServerAdapterBase):
     # ------------------------------------------------------------------------------------------------------------------
     def server_post_digest(self, server, handler, connection, transaction_id, header_data, data, response):
         key = data.get('command')
+
         command = server.get_command(key)
+
+        if not command:
+            return
 
         # -- if the command is deprecated, log a warning and set the return code if it's OK - if it's not, leave it.
         if key in command.former_aliases:

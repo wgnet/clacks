@@ -43,11 +43,6 @@ from ..handler import BaseRequestHandler
 from ..interface import ServerInterface, proxy_interface_from_type
 from ..package import Question, Response
 
-# -- python 3 does not have "unicode", but it does have "bytes".
-_unicode = bytes
-if sys.version_info.major == 2:
-    _unicode = unicode
-
 
 # ----------------------------------------------------------------------------------------------------------------------
 class ClientProxyBase(object):
@@ -59,7 +54,7 @@ class ClientProxyBase(object):
         if not isinstance(address, tuple):
             raise TypeError('Address must be a tuple, got %s!' % type(address))
 
-        if not isinstance(address[0], (str, _unicode)):
+        if not isinstance(address[0], (str, bytes)):
             raise TypeError('Host must be a string, got %s' % type(address[0]))
 
         if not isinstance(address[1], int):
@@ -157,13 +152,6 @@ class ClientProxyBase(object):
             raise TypeError('%s is not a ServerAdapterBase instance!' % adapter)
         self.adapters.append(adapter)
         self.handler.register_adapter(adapter)
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def get_command(self, key):
-        response = self.question('get_command', key)
-        if response is not None and response.traceback:
-            self.logger.exception(response.traceback)
-        return response.response
 
     # ------------------------------------------------------------------------------------------------------------------
     def disconnect(self):

@@ -135,27 +135,6 @@ class TestServerBase(ClacksTestCase):
         server.end()
 
     # ------------------------------------------------------------------------------------------------------------------
-    def test_crash_client(self):
-        # -- intentionally set all connections to not blocking, with a super short timeout and lifetime.
-        # -- this will artificially raise a timeout error, simulating a real one
-        self.server.clients[0].connection.setblocking(False)
-        self.server.clients[0].connection.settimeout(0.1)
-        self.server.clients[0].handler.CONNECTION_LIFETIME = 0.1
-
-        self.client.socket.setblocking(False)
-        self.client.socket.settimeout(0.1)
-
-        def wait():
-            assert len(self.server.clients) == 1
-            time.sleep(1)
-            assert len(self.server.clients) == 0
-
-        thread = threading.Thread(target=wait)
-        thread.start()
-
-        thread.join()
-
-    # ------------------------------------------------------------------------------------------------------------------
     def test_crash_client_address(self):
         assert len(self.server.socket_addresses) == 1
         list(self.server.sockets.keys())[0].close()

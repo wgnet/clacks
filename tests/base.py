@@ -18,11 +18,6 @@ import logging
 import unittest
 
 
-_server = None
-_address = None
-_client = None
-
-
 # ----------------------------------------------------------------------------------------------------------------------
 class TestServerInterface(clacks.ServerInterface):
 
@@ -97,6 +92,8 @@ class ClacksTestCase(unittest.TestCase):
 
     rebuild_server = False
 
+    _ADDRESS = _CLIENT = _SERVER = None
+
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self, methodName):
         super(ClacksTestCase, self).__init__(methodName)
@@ -104,64 +101,31 @@ class ClacksTestCase(unittest.TestCase):
         logging.basicConfig()
         logging.getLogger().setLevel(logging.DEBUG)
 
-        # -- initialize everything
-        _ = self.server
-        _ = self.client
-
     # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def tearDownClass(cls):
-        global _server
-        global _address
-        global _client
+    def build_client(self):
+        c = self.build_client_instance()
 
-        if cls.rebuild_server:
-            if _server is not None:
-                _client.disconnect()
-                _server.end()
-
-            _server = None
-            _address = None
-            _client = None
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def setUpClass(cls):
-        global _server
-        global _address
-        global _client
-
-        if cls.rebuild_server:
-            if _server is not None:
-                _client.disconnect()
-                _server.end()
-
-            _server = None
-            _address = None
-            _client = None
-
-        _server, _address = cls.build_server()
-        _client = cls.build_client()
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def build_client(cls):
-        c = clacks.ClientProxyBase(_address, clacks.SimpleRequestHandler(clacks.SimplePackageMarshaller()))
-
-        for interface in cls.proxy_interfaces:
+        for interface in self.proxy_interfaces:
             c.register_interface_by_type(interface)
 
         return c
 
     # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def build_server(cls):
-        s = clacks.ServerBase('Unittest Server')
+    def build_client_instance(self):
+        return clacks.ClientProxyBase(self.address, self.create_handler())
 
-        for interface in cls.server_interfaces:
+    # ------------------------------------------------------------------------------------------------------------------
+    def build_server_instance(self):
+        return clacks.ServerBase('Unittest Server')
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def build_server(self):
+        s = self.build_server_instance()
+
+        for interface in self.server_interfaces:
             s.register_interface_by_key(interface)
 
-        a = s.register_handler_by_key('localhost', 0, 'simple', 'simple')
+        a = s.register_handler('localhost', 0, self.create_handler())
 
         # -- we want our server to throw deprecation warnings
         s.register_adapter_by_key('deprecation_warnings')
@@ -172,51 +136,50 @@ class ClacksTestCase(unittest.TestCase):
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
+    def address(self):
+        if self._SERVER is not None:
+            return self._ADDRESS
+        self._SERVER, self._ADDRESS = self.build_server()
+        return self._ADDRESS
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
     def server(self):
-        global _server
-        global _address
-
-        if _server is not None:
-            return _server
-
-        _server, _address = self.build_server()
-        return _server
+        if self._SERVER is not None:
+            return self._SERVER
+        self._SERVER, self._ADDRESS = self.build_server()
+        return self._SERVER
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
     def client(self):
-        global _client
+        if self._CLIENT is not None:
+            return self._CLIENT
 
-        if _client is not None:
-            return _client
-
-        _client = self.build_client()
-
-        return _client
+        self._CLIENT = self.build_client()
+        return self._CLIENT
 
     # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def get_server_instance(cls):
+    def get_server_instance(self):
         server = clacks.ServerBase(identifier='Test Server')
 
-        for interface in cls.server_interfaces:
+        for interface in self.server_interfaces:
             server.register_interface_by_key(interface)
 
-        handler = cls.handler_type(cls.marshaller_type())
+        handler = self.create_handler()
         host, port = 'localhost', clacks.get_new_port('localhost')
 
         server.register_handler(host, port, handler)
         return server, (host, port)
 
     # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def get_client_instance(cls, address):
+    def get_client_instance(self, address):
         client = clacks.ClientProxyBase(
             address,
-            handler=cls.handler_type(cls.marshaller_type())
+            handler=self.create_handler()
         )
 
-        for interface in cls.proxy_interfaces:
+        for interface in self.proxy_interfaces:
             client.register_interface_by_type(interface)
 
         client.register_interface_by_type('standard')
