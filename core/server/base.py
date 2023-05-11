@@ -149,6 +149,14 @@ class ServerBase(object):
                     handler.register_adapter(adapter)
 
     # ------------------------------------------------------------------------------------------------------------------
+    def __dir__(self) -> typing.Iterable[str]:
+        result = super(ServerBase, self).__dir__()
+        for interface in self.interfaces:
+            result += dir(interface)
+        result = sorted(list(set(result)))
+        return result
+
+    # ------------------------------------------------------------------------------------------------------------------
     def __getattr__(self, item):
         if item in dir(self):
             return super(ServerBase, self).__getattribute__(item)
