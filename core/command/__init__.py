@@ -13,13 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-# -- different command types - normal, queued and deprecated.
-from .utils import command_from_callable, is_server_command, get_command_args, attrs_from_command
 from .arg_processors import *
+from .result_processors import *
 from .command import ServerCommand
+from .handler import ServerCommandDigestLoggingHandler
 from .decorators import aka, returns, returns_status_code, takes
 from .decorators import fka, private, process_arguments, process_result
-from .deprecated_command import DeprecatedServerCommand
-from .handler import ServerCommandDigestLoggingHandler
-from .queued_command import QueuedServerCommand
-from .result_processors import *
+from .utils import command_from_callable, is_server_command, get_command_args, attrs_from_command

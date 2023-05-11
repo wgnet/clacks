@@ -55,8 +55,7 @@ class ProfilingAdapter(ServerAdapterBase):
         return result
 
     # ------------------------------------------------------------------------------------------------------------------
-    def server_pre_digest(self, handler, connection, transaction_id, header_data, data):
-        # type: (BaseRequestHandler, socket.socket, str, dict, dict) -> None
+    def server_pre_digest(self, server, handler, connection, transaction_id, header_data, data):
         if not self.enabled:
             return
         profile = cProfile.Profile()
@@ -64,15 +63,13 @@ class ProfilingAdapter(ServerAdapterBase):
         self.command_profiles[transaction_id] = profile
 
     # ------------------------------------------------------------------------------------------------------------------
-    def server_post_digest(self, handler, connection, transaction_id, header_data, data, response):
-        # type: (BaseRequestHandler, socket.socket, str, dict, dict, Response) -> None
+    def server_post_digest(self, server, handler, connection, transaction_id, header_data, data, response):
         if transaction_id not in self.command_profiles:
             return
         self.command_profiles[transaction_id].disable()
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_pre_respond(self, connection, transaction_id, package):
-        # type: (socket.socket, str, Package) -> None
+    def handler_pre_respond(self, server, handler, connection, transaction_id, package):
         if not self.enabled:
             return
 
@@ -90,8 +87,7 @@ class ProfilingAdapter(ServerAdapterBase):
         package.payload['profiling'] = data
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_pre_compile_buffer(self, transaction_id, package):
-        # type: (str, Package) -> None
+    def handler_pre_compile_buffer(self, server, handler, transaction_id, package):
         if not self.enabled:
             return
         profile = cProfile.Profile()
@@ -99,8 +95,7 @@ class ProfilingAdapter(ServerAdapterBase):
         self.buffer_compile_profiles[transaction_id] = profile
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_post_compile_buffer(self, transaction_id, package):
-        # type: (str, Package) -> None
+    def handler_post_compile_buffer(self, server, handler, transaction_id, package):
         if not self.enabled:
             return
         self.buffer_compile_profiles[transaction_id].disable()

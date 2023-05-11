@@ -32,6 +32,7 @@ class TestSimpleRequestHandler(unittest.TestCase):
     # ------------------------------------------------------------------------------------------------------------------
     def test_encode_question_header(self):
         handler = clacks.handler.SimpleRequestHandler(clacks.SimplePackageMarshaller())
+        handler._initialize(self)
         length = handler.get_content_length('', self.question())
         response = handler.encode_question_header('UNITTEST', self.question(), length)
         assert isinstance(response, bytes)
@@ -39,6 +40,7 @@ class TestSimpleRequestHandler(unittest.TestCase):
     # ------------------------------------------------------------------------------------------------------------------
     def test_encode_response_header(self):
         handler = clacks.handler.SimpleRequestHandler(clacks.SimplePackageMarshaller())
+        handler._initialize(self)
         length = handler.get_content_length('', self.question())
         response = handler.encode_question_header('UNITTEST', self.question(), length)
         assert isinstance(response, bytes)

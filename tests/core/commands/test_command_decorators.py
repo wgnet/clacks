@@ -48,6 +48,7 @@ class TestCommandDecorators(ClacksTestCase):
         assert self.client.artist().code == 200
         assert self.client.artist().response is True
         assert self.client.prince().response is True
+        assert self.client.prince().code is clacks.errors.codes.ReturnCodes.DEPRECATED
         assert len(self.client.prince().warnings) > 0
 
     # ------------------------------------------------------------------------------------------------------------------

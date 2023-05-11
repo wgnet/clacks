@@ -14,31 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import gc
-import logging
-import socket
-import sys
-import threading
 import time
-import traceback
-import typing
 import uuid
+import socket
+import typing
+import logging
+import threading
+import traceback
 
-from ..adapters import ServerAdapterBase, adapter_from_key
-from ..command import DeprecatedServerCommand, ServerCommand, ServerCommandDigestLoggingHandler, command_from_callable
 from ..constants import LOG_MSG_LENGTH
-from ..errors import ClacksClientConnectionFailedError, error_code_from_error
 from ..errors.codes import ReturnCodes
-from ..handler import BaseRequestHandler, handler_from_key
-from ..interface.base import ServerInterface
-from ..interface.constants import server_interface_from_type
-from ..marshaller import marshaller_from_key
 from ..package import Question, Response
+from ..marshaller import marshaller_from_key
+from ..interface.base import ServerInterface
 from ..utils import get_new_port, is_key_legal
-
-# -- python 3 does not have "unicode", but it does have "bytes".
-_unicode = bytes
-if sys.version_info.major == 2:
-    _unicode = unicode
+from ..adapters import ServerAdapterBase, adapter_from_key
+from ..handler import BaseRequestHandler, handler_from_key
+from ..interface.constants import server_interface_from_type
+from ..errors import ClacksClientConnectionFailedError, error_code_from_error
+from ..command import ServerCommand, ServerCommandDigestLoggingHandler, command_from_callable
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -49,6 +43,8 @@ class ServerBase(object):
     """
 
     _REQUIRED_INTERFACES: list[str] = []
+
+    _REQUIRED_ADAPTERS: list[str] = []
 
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self, identifier=None, start_queue=True, threaded_digest=False):
@@ -101,6 +97,9 @@ class ServerBase(object):
         # -- register required interfaces on init
         for key in self._REQUIRED_INTERFACES:
             self.register_interface_by_key(key)
+
+        for key in self._REQUIRED_ADAPTERS:
+            self.register_adapter_by_key(key)
 
         if start_queue:
             self.start_queue()
@@ -334,7 +333,7 @@ class ServerBase(object):
 
         :return: None
         """
-        if not isinstance(host, (str, _unicode)):
+        if not isinstance(host, (str, bytes)):
             raise TypeError('Expected string value for host argument, got %s!' % type(host))
 
         if not isinstance(port, int):
@@ -375,7 +374,7 @@ class ServerBase(object):
         _args = self.queue.pop(0)
 
         for adapter in self.adapters.values():
-            adapter.server_post_remove_from_queue(*_args)
+            adapter.server_post_remove_from_queue(self, *_args)
 
         if self.threaded_digest:
             thread = threading.Thread(target=self.__respond, args=_args)
@@ -453,7 +452,7 @@ class ServerBase(object):
         :return: None
         """
         for adapter in self.adapters.values():
-            adapter.server_pre_digest(handler, connection, transaction_id, header_data, data)
+            adapter.server_pre_digest(self, handler, connection, transaction_id, header_data, data)
 
         self.command_handler.start()
 
@@ -478,7 +477,7 @@ class ServerBase(object):
         self.command_handler.stop()
 
         for adapter in self.adapters.values():
-            adapter.server_post_digest(handler, connection, transaction_id, header_data, data, response)
+            adapter.server_post_digest(self, handler, connection, transaction_id, header_data, data, response)
 
         handler.respond(connection, transaction_id, response)
 
@@ -613,7 +612,7 @@ class ServerBase(object):
         for adapter in self.adapters.values():
             if adapter not in handler.adapters:
                 continue
-            adapter.server_pre_add_to_queue(handler, connection, transaction_id, header_data, data)
+            adapter.server_pre_add_to_queue(self, handler, connection, transaction_id, header_data, data)
 
         self.queue.append((handler, connection, transaction_id, header_data, data))
         self.logger.debug('Item %s added to queue. Queue contains %s items.' % (str(data), len(self.queue)))
@@ -648,34 +647,11 @@ class ServerBase(object):
                 return
             _callable = command
 
-        # -- assume there might be one or more aliases
-        keys = [key]
-        if _callable.aliases is not None:
-            # -- register every alias
-            keys += _callable.aliases
+        # -- a command must always be known as itself
+        if key not in _callable.aliases:
+            _callable.aliases.append(key)
 
-        # -- by overriding the command aliases, we ensure that the first alias is just the default key
-        _callable.aliases = keys[:]
-
-        # -- for each declared key, register the command.
-        # -- this allows us to register commands under more than one key, for compatibility and ease.
-        for _key in keys:
-            if skip_duplicates and _key in self.commands:
-                continue
-            self._register_command(_key, _callable)
-
-        deprecated_keys = list()
-        if _callable.former_aliases is not None:
-            deprecated_keys += _callable.former_aliases
-
-        # -- for former aliases, still register the command, but redirect its construction and register a
-        # -- DeprecatedServerCommand instance instead. This allows us to provide a server safe mode that
-        # -- treats deprecation warnings as errors.
-        for _key in deprecated_keys:
-            if skip_duplicates and _key in self.commands:
-                continue
-            # -- register a DeprecatedServerCommand instance instead of its vanilla counterpart.
-            self._register_command(_key, DeprecatedServerCommand.from_command(_callable))
+        self._register_command(key, _callable)
 
     # ------------------------------------------------------------------------------------------------------------------
     def _register_command(self, key, srv_cmd):
@@ -770,6 +746,8 @@ class ServerBase(object):
             on_connection_closed=self.remove_client
         )
 
+        client._initialize(self)
+
         self.connections[connection] = client
 
         self.logger.info('Adding client "%s"' % client)
@@ -822,16 +800,18 @@ class ServerBase(object):
         :return: True if successful, if False, the server will not be started.
         :rtype: bool
         """
+        success = True
+
         for handler in self.handler_addresses:
-            handler._initialize()
+            success = success or handler._initialize(self)
 
         for adapter in self.adapters.values():
-            adapter._initialize()
+            success = success or adapter._initialize(self)
 
         for interface in self.interfaces.values():
-            interface._initialize()
+            success = success or interface._initialize(self)
 
-        return True
+        return success
 
     # ------------------------------------------------------------------------------------------------------------------
     def start(self, blocking=False):
@@ -955,12 +935,18 @@ class ServerClient(object):
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self, server, connection, address, handler, on_connection_closed=None):
         # type: (ServerBase, socket.socket, tuple, BaseRequestHandler, callable) -> None
+        self.parent = None
         self.server = server
         self.connection = connection
         self.address = address
         self.handler = handler
 
         self.on_connection_closed = on_connection_closed
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def _initialize(self, parent):
+        self.parent = parent
+        self.handler._initialize(self)
 
     # ------------------------------------------------------------------------------------------------------------------
     def register_adapter_by_key(self, adapter_key):

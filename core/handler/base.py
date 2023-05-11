@@ -16,7 +16,6 @@ limitations under the License.
 import collections
 import logging
 import socket
-import sys
 import time
 import traceback
 import typing
@@ -28,10 +27,6 @@ from ..errors import ClacksClientConnectionFailedError
 from ..errors.codes import ReturnCodes
 from ..marshaller import BasePackageMarshaller
 from ..package import Package, Question, Response
-
-_unicode = bytes
-if sys.version_info.major == 2:
-    _unicode = unicode
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -60,6 +55,8 @@ class BaseRequestHandler(object):
     # -- transfer speed is a minimum of 16384 bytes per package
     BUFFER_SIZE = 16384
 
+    _REQUIRED_ADAPTERS: list[str] = []
+
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self, marshaller, server=None):
         """
@@ -74,6 +71,9 @@ class BaseRequestHandler(object):
         :type server: BaseServer
 
         """
+        self.parent = None
+        self._initialized = False
+
         self.marshaller = marshaller
 
         # -- in case a handler is ever instantiated but never registered to a server, the DummyServer class
@@ -88,12 +88,14 @@ class BaseRequestHandler(object):
 
         self.adapters = list()
 
+        for key in self._REQUIRED_ADAPTERS:
+            self.register_adapter_by_key(key)
+
         # -- list of currently running transactions
         self.transaction_cache = dict()
 
     # ------------------------------------------------------------------------------------------------------------------
-    def _initialize(self):
-        # type: () -> bool
+    def _initialize(self, parent):
         """
         This method is called just before the server is started - this gives handlers, adapters and interfaces the
         opportunity to do some last-minute changes and resource gathering.
@@ -101,12 +103,17 @@ class BaseRequestHandler(object):
         :return: True if successful, if False, the server will not be started.
         :rtype: bool
         """
+        self.parent = parent
+        success = True
+
         self.marshaller.register_handler(self)
 
         for adapter in self.adapters:
-            adapter._initialize()
+            success = success or adapter._initialize(self)
 
-        return True
+        self._initialized = success
+
+        return success
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
@@ -114,7 +121,7 @@ class BaseRequestHandler(object):
         return self.server.logger
 
     # ------------------------------------------------------------------------------------------------------------------
-    def register_adapter(self, adapter):
+    def register_adapter(self, adapter: typing.Type):
         from ..adapters import ServerAdapterBase
 
         if not isinstance(adapter, ServerAdapterBase):
@@ -122,6 +129,12 @@ class BaseRequestHandler(object):
 
         self.adapters.append(adapter)
         self.marshaller.register_adapter(adapter)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def register_adapter_by_key(self, adapter_key):
+        from ..adapters import adapter_from_key
+        adapter = adapter_from_key(adapter_key)
+        self.register_adapter(adapter())
 
     # ------------------------------------------------------------------------------------------------------------------
     def accept_socket(self, sock):
@@ -332,6 +345,9 @@ class BaseRequestHandler(object):
 
         :return: None
         """
+        if not self._initialized:
+            raise Exception(f'Handler {self} has not been initialized!')
+
         if connection not in self.timestamps:
             self.timestamps[connection] = time.time()
 
@@ -426,7 +442,7 @@ class BaseRequestHandler(object):
         :rtype: tuple
         """
         for adapter in self.adapters:
-            adapter.handler_pre_receive_header(transaction_id)
+            adapter.handler_pre_receive_header(self.server, self, transaction_id)
 
         header_buffer = b''
         header_received = False
@@ -468,7 +484,7 @@ class BaseRequestHandler(object):
         # -- may insert information in incoming headers, or trace header data per transaction using the transaction id.
         # -- this last bit is useful when doing things like profiling.
         for adapter in self.adapters:
-            adapter.handler_post_receive_header(transaction_id, header_data)
+            adapter.handler_post_receive_header(self.server, self, transaction_id, header_data)
 
         return header_buffer, header_data
 
@@ -494,7 +510,7 @@ class BaseRequestHandler(object):
         :rtype: tuple
         """
         for adapter in self.adapters:
-            adapter.handler_pre_receive_content(transaction_id, header_data)
+            adapter.handler_pre_receive_content(self.server, self, transaction_id, header_data)
 
         _received = 0
         _remaining = content_length
@@ -517,7 +533,7 @@ class BaseRequestHandler(object):
 
         # -- run all handler adapters' "receive content" method on the received data.
         for adapter in self.adapters:
-            adapter.handler_post_receive_content(transaction_id, header_data, content_data)
+            adapter.handler_post_receive_content(self.server, self, transaction_id, header_data, content_data)
 
         return content_buffer, content_data
 
@@ -584,7 +600,7 @@ class BaseRequestHandler(object):
 
         # -- give adapters the chance to trigger any callbacks or make changes to package pre-compile
         for adapter in self.adapters:
-            adapter.handler_pre_compile_buffer(transaction_id, package)
+            adapter.handler_pre_compile_buffer(self.server, self, transaction_id, package)
 
         bytes_data = None
         try:
@@ -629,7 +645,7 @@ class BaseRequestHandler(object):
 
         # -- give adapters the chance to trigger any callbacks or make changes to packages pre-compile
         for adapter in self.adapters:
-            adapter.handler_post_compile_buffer(transaction_id, package)
+            adapter.handler_post_compile_buffer(self.server, self, transaction_id, package)
 
         return _buffer
 
@@ -679,7 +695,7 @@ class BaseRequestHandler(object):
         """
         # -- give adapters the chance to trigger any callbacks or make changes to packages pre-send
         for adapter in self.adapters:
-            adapter.handler_pre_respond(connection, transaction_id, response)
+            adapter.handler_pre_respond(self.server, self, connection, transaction_id, response)
 
         # -- log response, so we know what came out (and if we got stuck somewhere)
         self.logger.debug('Response: {response}...'.format(response=str(response)[:LOG_MSG_LENGTH]))
@@ -692,4 +708,4 @@ class BaseRequestHandler(object):
 
         # -- give adapters the chance to trigger any callbacks or make changes to packages post-send
         for adapter in self.adapters:
-            adapter.handler_post_respond(connection, transaction_id, response)
+            adapter.handler_post_respond(self.server, self, connection, transaction_id, response)

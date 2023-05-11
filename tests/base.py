@@ -162,6 +162,10 @@ class ClacksTestCase(unittest.TestCase):
             s.register_interface_by_key(interface)
 
         a = s.register_handler_by_key('localhost', 0, 'simple', 'simple')
+
+        # -- we want our server to throw deprecation warnings
+        s.register_adapter_by_key('deprecation_warnings')
+
         s.start(blocking=False)
 
         return s, a
@@ -221,7 +225,9 @@ class ClacksTestCase(unittest.TestCase):
     # ------------------------------------------------------------------------------------------------------------------
     @classmethod
     def create_handler(cls):
-        return cls.handler_type(cls.marshaller_type())
+        handler = cls.handler_type(cls.marshaller_type())
+        handler._initialize(cls)
+        return handler
 
     # ------------------------------------------------------------------------------------------------------------------
     @classmethod

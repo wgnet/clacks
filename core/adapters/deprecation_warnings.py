@@ -13,21 +13,30 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import socket
-
-from ..package import Package
 from .base import ServerAdapterBase
+from ..errors.codes import ReturnCodes
 from .constants import register_adapter_type
 
 
 # ------------------------------------------------------------------------------------------------------------------
-class GNUTerryPratchettHeaderAdapter(ServerAdapterBase):
+class DeprecationWarningsAdapter(ServerAdapterBase):
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_pre_respond(self, server, handler, connection, transaction_id, package):
-        if 'header_data' not in package.payload:
-            package.payload['header_data'] = dict()
-        package.header_data['X-Clacks-Overhead'] = 'GNU Terry Pratchett'
+    def server_post_digest(self, server, handler, connection, transaction_id, header_data, data, response):
+        key = data.get('command')
+        command = server.get_command(key)
+
+        # -- if the command is deprecated, log a warning and set the return code if it's OK - if it's not, leave it.
+        if key in command.former_aliases:
+            if response.code is ReturnCodes.OK:
+                response.code = ReturnCodes.DEPRECATED
+
+            warning = f'Warning! Command {key} has been deprecated. Please upgrade any API calls to one of its current ' \
+                      f'aliases: {command.aliases}.'
+
+            server.logger.warning(warning)
+
+            response.warnings.append(warning)
 
 
-register_adapter_type('gnu', GNUTerryPratchettHeaderAdapter)
+register_adapter_type('deprecation_warnings', DeprecationWarningsAdapter)

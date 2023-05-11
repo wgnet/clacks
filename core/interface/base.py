@@ -33,6 +33,7 @@ class ServerInterface(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self):
+        self.parent = None
         self.commands = dict()
         self.server = None
 
@@ -40,8 +41,7 @@ class ServerInterface(object):
             raise TypeError('All server commands must inherit from the base clacks.ServerCommand class!')
 
     # ------------------------------------------------------------------------------------------------------------------
-    def _initialize(self):
-        # type: () -> bool
+    def _initialize(self, parent):
         """
         This method is called just before the server is started - this gives handlers, adapters and interfaces the
         opportunity to do some last-minute changes and resource gathering.
@@ -49,7 +49,8 @@ class ServerInterface(object):
         :return: True if successful, if False, the server will not be started.
         :rtype: bool
         """
-        pass
+        self.parent = parent
+        return True
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
@@ -143,5 +144,12 @@ class ServerInterface(object):
             if not value:
                 continue
 
-            # -- register the command
-            server.register_command(key=key, _callable=value)
+            if key not in value.aliases:
+                value.aliases.append(key)
+
+            # -- register commands under their key, any of their aliases and any of their former aliases
+            keys = value.aliases + value.former_aliases
+
+            for command_key in keys:
+                # -- register the command
+                server.register_command(key=command_key, _callable=value)

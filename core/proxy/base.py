@@ -186,7 +186,7 @@ class ClientProxyBase(object):
     # ------------------------------------------------------------------------------------------------------------------
     def _initialize(self):
         self.handler.register_server(self)
-        self.handler._initialize()
+        self.handler._initialize(self)
 
     # ------------------------------------------------------------------------------------------------------------------
     def connect(self):
