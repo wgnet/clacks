@@ -23,6 +23,7 @@ def aka(aliases=None):
     """
     def wrapper(fn):
         fn.aliases = aliases
+        fn.is_server_command = True
         return fn
     return wrapper
 
@@ -38,6 +39,7 @@ def fka(former_aliases=None):
     """
     def wrapper(fn):
         fn.former_aliases = former_aliases
+        fn.is_server_command = True
         return fn
     return wrapper
 
@@ -49,6 +51,7 @@ def returns(return_type=object):
     """
     def wrapper(fn):
         fn.return_type = return_type
+        fn.is_server_command = True
         return fn
     return wrapper
 
@@ -60,6 +63,7 @@ def takes(arg_types=None):
     """
     def wrapper(fn):
         fn.arg_types = arg_types
+        fn.is_server_command = True
         return fn
     return wrapper
 
@@ -73,6 +77,7 @@ def returns_status_code(fn):
     This is useful when building a Web API that relies on a myriad of error codes, depending on what went wrong.
     """
     fn.returns_status_code = True
+    fn.is_server_command = True
     return fn
 
 
@@ -83,6 +88,7 @@ def private(fn):
     by the server itself. Private methods are not hidden - they still get registered as functions!
     """
     fn.private = True
+    fn.is_server_command = True
     return fn
 
 
@@ -94,6 +100,7 @@ def hidden(fn):
     this decorator to ensure that they do not get registered as server commands.
     """
     fn.hidden = True
+    fn.is_server_command = False
     return fn
 
 
@@ -104,6 +111,7 @@ def process_arguments(arg_processors):
     """
     def wrapper(fn):
         fn.arg_processors = arg_processors
+        fn.is_server_command = True
         return fn
     return wrapper
 
@@ -115,5 +123,6 @@ def process_result(result_processors):
     """
     def wrapper(fn):
         fn.result_processors = result_processors
+        fn.is_server_command = True
         return fn
     return wrapper

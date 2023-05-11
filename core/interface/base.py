@@ -15,7 +15,7 @@ limitations under the License.
 """
 import logging
 
-from ..command import ServerCommand
+from ..command import ServerCommand, is_server_command, command_from_callable
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -82,7 +82,7 @@ class ServerInterface(object):
 
         # -- if we only want to register decorated commands, then only register those.
         if self._ONLY_REGISTER_DECORATED_COMMANDS:
-            if not ServerCommand.is_decorated(value):
+            if not is_server_command(value):
                 return False
 
         for attr in self._COMMON_ATTRIBUTES:
@@ -119,7 +119,7 @@ class ServerInterface(object):
 
             command_class = fn.command_class
 
-        return command_class.construct(interface=self, function=fn)
+        return command_from_callable(interface=self, function=fn, cls=command_class)
 
     # ------------------------------------------------------------------------------------------------------------------
     def register(self, server):

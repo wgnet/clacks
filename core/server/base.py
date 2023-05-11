@@ -24,9 +24,7 @@ import typing
 import uuid
 
 from ..adapters import ServerAdapterBase, adapter_from_key
-from ..command import DeprecatedServerCommand
-from ..command import ServerCommand
-from ..command import ServerCommandDigestLoggingHandler
+from ..command import DeprecatedServerCommand, ServerCommand, ServerCommandDigestLoggingHandler, command_from_callable
 from ..constants import LOG_MSG_LENGTH
 from ..errors import ClacksClientConnectionFailedError, error_code_from_error
 from ..errors.codes import ReturnCodes
@@ -644,7 +642,7 @@ class ServerBase(object):
 
         # -- by default, we automatically turn a function into a ServerCommand when we don't get one fed to us.
         if not isinstance(_callable, ServerCommand):
-            command = ServerCommand.construct(interface=self, function=_callable)
+            command = command_from_callable(interface=self, function=_callable, cls=ServerCommand)
             if command is None:
                 self.logger.debug('Could not create a ServerCommand from function %s - ignoring.' % _callable.__name__)
                 return

@@ -13,17 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import sys
-
 from ..base import ServerInterface
 from ..constants import register_server_interface_type
-from ...command import aka, process_arguments, returns, returns_status_code, takes
+from ...command import process_arguments, returns, returns_status_code, takes
+from ...command import attrs_from_command
 from ...errors.codes import ReturnCodes
-
-# -- python 3 does not have "unicode", but it does have "bytes".
-_unicode = bytes
-if sys.version_info.major == 2:
-    _unicode = unicode
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -144,7 +138,7 @@ class CommandUtilsServerInterface(ServerInterface):
         if cmd is None:
             return None, ReturnCodes.NOT_FOUND
 
-        return cmd.info(), ReturnCodes.OK
+        return attrs_from_command(cmd), ReturnCodes.OK
 
 
 register_server_interface_type('cmd_utils', CommandUtilsServerInterface)
