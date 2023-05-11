@@ -803,13 +803,16 @@ class ServerBase(object):
         success = True
 
         for handler in self.handler_addresses:
-            success = success or handler._initialize(self)
+            _success = handler._initialize(self)
+            success = success or _success
 
         for adapter in self.adapters.values():
-            success = success or adapter._initialize(self)
+            _success = adapter._initialize(self)
+            success = success or _success
 
         for interface in self.interfaces.values():
-            success = success or interface._initialize(self)
+            _success = interface._initialize(self)
+            success = success or _success
 
         return success
 
