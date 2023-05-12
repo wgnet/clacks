@@ -13,8 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from . import register_error_type
 from .codes import ReturnCodes
+from . import register_error_type
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -85,16 +85,6 @@ register_error_type(ClacksBadCommandArgsError.key, ClacksBadCommandArgsError)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-class ClacksBadArgProcessorOutputError(ClacksCommandErrorBaseBase):
-    key = 'clacks_bad_arg_processor_output_error'
-    label = 'Bad Arg Processor Output'
-    code = ReturnCodes.INVALID_ARG_PROCESSOR_OUTPUT
-
-
-register_error_type(ClacksBadArgProcessorOutputError.key, ClacksBadArgProcessorOutputError)
-
-
-# ----------------------------------------------------------------------------------------------------------------------
 class ClacksCommandUnexpectedReturnValueError(ClacksCommandErrorBaseBase):
     key = 'clacks_command_unexpected_return_type_error'
     label = 'Unexpected Command Return Type'
@@ -122,3 +112,13 @@ class ClacksClientConnectionFailedError(ClacksCommandErrorBaseBase):
 
 
 register_error_type(ClacksClientConnectionFailedError.key, ClacksClientConnectionFailedError)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+class ClacksCommandNotFoundError(ClacksCommandErrorBaseBase):
+    key = 'clacks_command_not_found_error'
+    label = 'Command Not Found!'
+    code = ReturnCodes.NOT_FOUND
+
+
+register_error_type(ClacksCommandNotFoundError.key, ClacksCommandNotFoundError)

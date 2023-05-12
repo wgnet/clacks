@@ -45,43 +45,6 @@ def fka(former_aliases=None):
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-def returns(return_type=object):
-    """
-    Return type decorator; tells the server what data type this function returns.
-    """
-    def wrapper(fn):
-        fn.return_type = return_type
-        fn.is_server_command = True
-        return fn
-    return wrapper
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-def takes(arg_types=None):
-    """
-    Argument type decorator; tells the server what types of arguments this method takes.
-    """
-    def wrapper(fn):
-        fn.arg_types = arg_types
-        fn.is_server_command = True
-        return fn
-    return wrapper
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-def returns_status_code(fn):
-    """
-    Tells the server that this method will return a tuple of (result, return code), allowing the function to return
-    custom error codes.
-
-    This is useful when building a Web API that relies on a myriad of error codes, depending on what went wrong.
-    """
-    fn.returns_status_code = True
-    fn.is_server_command = True
-    return fn
-
-
-# ----------------------------------------------------------------------------------------------------------------------
 def private(fn):
     """
     Tells the server this method is private. This ensures that it cannot be called by a client, but it may be called
@@ -102,27 +65,3 @@ def hidden(fn):
     fn.hidden = True
     fn.is_server_command = False
     return fn
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-def process_arguments(arg_processors):
-    """
-    Attach a filter method to the server command, which is called on every incoming argument.
-    """
-    def wrapper(fn):
-        fn.arg_processors = arg_processors
-        fn.is_server_command = True
-        return fn
-    return wrapper
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-def process_result(result_processors):
-    """
-    Attach a processing method to the server command, which is called on its returning result.
-    """
-    def wrapper(fn):
-        fn.result_processors = result_processors
-        fn.is_server_command = True
-        return fn
-    return wrapper

@@ -16,10 +16,10 @@ limitations under the License.
 import os
 import socket
 
+from ...command import private
 from ..base import ServerInterface
-from ..constants import register_server_interface_type
-from ...command import private, returns, takes
 from ...utils import quick_listening_socket
+from ..constants import register_server_interface_type
 
 
 class FileIOServerInterface(ServerInterface):
@@ -58,15 +58,11 @@ class FileIOServerInterface(ServerInterface):
         return file_path
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'file_name': str})
-    @returns(str)
     def get_server_file_path(self, file_name):
         # type: (str) -> str
         return self.file_cache.get(file_name)
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'server_file': str})
-    @returns(str)
     def get_server_file_handle(self, server_file):
         # type: (str) -> str
         result = server_file.replace(self.cache_dir, '').lstrip('/').lstrip('\\')
@@ -75,7 +71,6 @@ class FileIOServerInterface(ServerInterface):
         return result
 
     # ------------------------------------------------------------------------------------------------------------------
-    @returns(None)
     def open_socket(self):
         # type: () -> tuple
         s = quick_listening_socket(socket.gethostbyname(socket.gethostname()), 0)
@@ -84,8 +79,6 @@ class FileIOServerInterface(ServerInterface):
         return address
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'address': tuple, 'file_name': str})
-    @returns(str)
     def store_file(self, address, file_name):
         # type: (tuple, str) -> str
         address = (address[0], address[1])
@@ -130,8 +123,6 @@ class FileIOServerInterface(ServerInterface):
         return file_name
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'address': tuple, 'file_name': str})
-    @returns(str)
     def retrieve_file(self, address, file_name):
         # type: (tuple, str) -> str
         file_path = self.file_cache.get(file_name)
@@ -168,8 +159,6 @@ class FileIOServerInterface(ServerInterface):
         return file_name
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'file_name': str})
-    @returns(None)
     def remove_file(self, file_name):
         # type: (str) -> None
         file_path = self.file_cache.get(file_name)

@@ -21,7 +21,6 @@ def foo():
     print('bar')
 
 
-@clacks.decorators.takes({'value': object, 'other': object})
 def echo(value=None, other=None):
     return value
 

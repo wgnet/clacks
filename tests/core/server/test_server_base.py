@@ -41,7 +41,7 @@ class TestServerBase(ClacksTestCase):
 
         # -- this should not fail
         command = self.server.setup_logging_broadcast
-        assert isinstance(command, clacks.ServerCommand)
+        assert not isinstance(command, clacks.ServerCommand)
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_digest_bad_question(self):

@@ -22,48 +22,19 @@ import unittest
 class TestServerInterface(clacks.ServerInterface):
 
     # ------------------------------------------------------------------------------------------------------------------
-    @clacks.decorators.takes({'first': int, 'second': str})
-    def takes(self, first, second):
-        return first, second
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @clacks.decorators.returns(str)
-    def returns(self):
-        return 'string'
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @clacks.decorators.returns_status_code
-    def returns_status_code(self):
-        return True, 666
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @clacks.decorators.returns_status_code
-    def returns_status_code_bad(self):
-        return True
-
-    # ------------------------------------------------------------------------------------------------------------------
     @clacks.decorators.aka(['PRINCE'])
     def aka(self, arg):
         return arg
 
     # ------------------------------------------------------------------------------------------------------------------
     @clacks.decorators.private
-    def private_fn(self, value):
+    def private_fn(self):
         print('This should not be reachable')
 
     # ------------------------------------------------------------------------------------------------------------------
     @clacks.decorators.fka(['prince'])
     def artist(self):
         return True
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @clacks.decorators.returns(clacks.Response)
-    def returns_response(self):
-        return clacks.Response(
-            header_data=dict(),
-            response='foo bar',
-            code=667,
-        )
 
 
 clacks.register_server_interface_type('decorator_test', TestServerInterface)
@@ -126,9 +97,6 @@ class ClacksTestCase(unittest.TestCase):
             s.register_interface_by_key(interface)
 
         a = s.register_handler('localhost', 0, self.create_handler())
-
-        # -- we want our server to throw deprecation warnings
-        s.register_adapter_by_key('deprecation_warnings')
 
         s.start(blocking=False)
 

@@ -15,6 +15,5 @@ limitations under the License.
 """
 from . import gnutp
 from . import profiling
-from . import deprecation_warnings
 from .base import ServerAdapterBase
 from .constants import adapter_from_key, register_adapter_type

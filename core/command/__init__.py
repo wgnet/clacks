@@ -16,7 +16,6 @@ limitations under the License.
 from .arg_processors import *
 from .result_processors import *
 from .command import ServerCommand
+from .decorators import fka, private, aka, hidden
 from .handler import ServerCommandDigestLoggingHandler
-from .decorators import aka, returns, returns_status_code, takes
-from .decorators import fka, private, process_arguments, process_result
 from .utils import command_from_callable, is_server_command, get_command_args, attrs_from_command

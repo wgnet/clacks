@@ -13,24 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import sys
-
+from ...command import aka
 from ..base import ServerInterface
 from ..constants import register_server_interface_type
-from ...command import aka, process_arguments, returns, takes
-
-# -- python 3 does not have "unicode", but it does have "bytes".
-_unicode = bytes
-if sys.version_info.major == 2:
-    _unicode = unicode
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 class StandardServerInterface(ServerInterface):
 
     # ------------------------------------------------------------------------------------------------------------------
-    @returns(list)
-    @process_arguments(['strip_args'])
     def get_handler_addresses(self):
         """
         From the server, get a simple list of handler addresses. This is convenient if you just want to get the combo
@@ -42,8 +33,6 @@ class StandardServerInterface(ServerInterface):
         return list(self.server.handler_addresses.values())
 
     # ------------------------------------------------------------------------------------------------------------------
-    @returns(list)
-    @process_arguments(['strip_args'])
     def list_commands(self):
         # type: () -> list
         """
@@ -55,14 +44,11 @@ class StandardServerInterface(ServerInterface):
         result = [
             cmd
             for cmd in self.server.commands.keys()
-            if self.server.commands[cmd].private is False
+            if self.server.commands[cmd].get('private') is False
         ]
         return sorted(list(result))
 
     # ------------------------------------------------------------------------------------------------------------------
-    @returns(bool)
-    @takes({'address': tuple})
-    @process_arguments(['auto_strip_args'])
     def disconnect_client(self, address):
         # type: (tuple) -> bool
         """
@@ -77,8 +63,6 @@ class StandardServerInterface(ServerInterface):
         return self.server._disconnect_client(address=address)
 
     # ------------------------------------------------------------------------------------------------------------------
-    @returns(None)
-    @process_arguments(['strip_args'])
     def shutdown(self):
         """
         Shut down the server.
@@ -90,9 +74,6 @@ class StandardServerInterface(ServerInterface):
         self.server.end()
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'command': str})
-    @returns(bool)
-    @process_arguments(['auto_strip_args'])
     def command_exists(self, command):
         """
         Returns True if the given command exists on this server. This includes all registered interfaces.
@@ -111,8 +92,6 @@ class StandardServerInterface(ServerInterface):
 
     # ------------------------------------------------------------------------------------------------------------------
     @aka(['interfaces'])
-    @returns(list)
-    @process_arguments(['strip_args'])
     def implemented_interfaces(self):
         # type: () -> list
         """
@@ -125,10 +104,7 @@ class StandardServerInterface(ServerInterface):
         return sorted(list(self.server.interfaces.keys()))
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'interface_type': str})
-    @returns(bool)
     @aka(['implements'])
-    @process_arguments(['auto_strip_args'])
     def implements_interface(self, interface_type):
         # type: (str) -> bool
         """
@@ -146,7 +122,7 @@ class StandardServerInterface(ServerInterface):
             except UnicodeEncodeError:
                 pass
 
-        if not isinstance(interface_type, (str, _unicode)):
+        if not isinstance(interface_type, (str, bytes)):
             raise TypeError('interface_type must be a string, got %s!' % type(interface_type))
 
         for interface in self.server.interfaces:
