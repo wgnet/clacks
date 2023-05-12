@@ -15,42 +15,18 @@ limitations under the License.
 """
 import json
 
-from .constants import register_result_processor
-from ..command import ServerCommand
+
+# ----------------------------------------------------------------------------------------------------------------------
+def enforce_return_type(fn):
+    def wrapper(*args, **kwargs):
+        return fn(*args, **kwargs)
+    return wrapper
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-def example_result_processor(server_command, result):
-    # type: (ServerCommand, object) -> object
-    """
-    Example result processor, is expected to return the the processed result.
-    A practical use case would be to marshal the return data to a JSON string, allowing a given interface's methods
-    to be written
-    """
-    return result
-
-
-register_result_processor('example_result_processor', example_result_processor)
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-def enforce_return_type(server_command, result):
-    # type: (ServerCommand, object) -> object
-    return_type = server_command.return_type
-    if not isinstance(result, return_type):
-        raise TypeError('Return type expected %s, got %s!' % (return_type, type(result)))
-    return result
-
-
-register_result_processor('enforce_return_type', enforce_return_type)
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-def return_as_json(server_command, result):
-    # type: (ServerCommand, object) -> object
-    if not isinstance(result, (list, dict)):
-        raise ValueError('non JSON compatible data provided!')
-    return json.dumps(result, sort_keys=True)
-
-
-register_result_processor('return_as_json', return_as_json)
+def return_as_json(fn):
+    def wrapper(*args, **kwargs):
+        result = fn(*args, **kwargs)
+        result = json.dumps(result, sort_keys=True)
+        return result
+    return wrapper

@@ -82,24 +82,29 @@ def is_server_command(function):
 # ----------------------------------------------------------------------------------------------------------------------
 def command_from_callable(interface, function, cls=ServerCommand):
     kwargs = dict()
-
     kwargs['_callable'] = function
     kwargs['interface'] = interface
-
     return cls(**kwargs)
+
+# ----------------------------------------------------------------------------------------------------------------------
+def get_command_signature(cmd) -> inspect.Signature:
+    if hasattr(cmd, '_callable'):
+        signature = inspect.signature(cmd._callable)
+
+    else:
+        signature = inspect.signature(cmd)
+
+    if not signature:
+        raise ValueError(f'Could not extract function signature from object {cmd}!')
+
+    return signature
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+def get_command_return_type(cmd):
+    return get_command_signature(cmd).return_annotation
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 def get_command_args(cmd):
-    if not callable(cmd):
-        raise TypeError('Only callable objects with a recognizable function signature can be registered as processors!')
-
-    if hasattr(cmd, '_callable'):
-        spec = inspect.signature(cmd._callable)
-    else:
-        spec = inspect.signature(cmd)
-
-    if not spec:
-        raise ValueError('Could not extract function signature from object %s!' % cmd)
-
-    return spec.parameters
+    return get_command_signature(cmd).parameters

@@ -40,10 +40,6 @@ from .core.command import ServerCommand
 from .core.command.decorators import aka, fka, hidden, private
 
 from .core.command import arg_processors, result_processors
-from .core.command import register_arg_processor, register_result_processor
-from .core.command import arg_processor_from_key, key_from_arg_processor
-from .core.command import result_processor_from_key, key_from_result_processor
-
 from .core.errors import ReturnCodes
 from .core.errors import error_from_key, register_error_type, key_from_error_type
 
