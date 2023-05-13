@@ -31,13 +31,13 @@ implemented, without needing to make the code that generates these classes too c
 import functools
 import logging
 import socket
-import sys
 import threading
 import time
 import typing
 import uuid
 
 from .utils import register_proxy_type
+from ..command import ServerCommand
 from ..adapters import ServerAdapterBase
 from ..handler import BaseRequestHandler
 from ..interface import ServerInterface, proxy_interface_from_type
@@ -90,7 +90,7 @@ class ClientProxyBase(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
-    def connected(self):
+    def connected(self) -> bool:
         try:
             self.socket.getsockname()
             return True
@@ -98,15 +98,14 @@ class ClientProxyBase(object):
             return False
 
     # ------------------------------------------------------------------------------------------------------------------
-    def register_interface_by_type(self, interface_type):
-        # type: (str) -> None
+    def register_interface_by_type(self, interface_type: str) -> bool:
         """
         From a key string, register an interface that indicates the type of the interface.
 
         :param interface_type: the interface type to create and register
         :type interface_type: str
 
-        :return: None
+        :return: True if registry was successful
         """
         interface = proxy_interface_from_type(interface_type)
         if interface is None:
@@ -114,10 +113,11 @@ class ClientProxyBase(object):
 
         if interface_type in self.interfaces:
             self.logger.warning('Server %s already implements interface %s!' % (self, interface_type))
-            return
+            return False
 
         interface = interface()
         self.register_interface(interface_type, interface)
+        return True
 
     # ------------------------------------------------------------------------------------------------------------------
     def register_interface(self, key, interface):
@@ -139,11 +139,10 @@ class ClientProxyBase(object):
         interface.register(self)
 
     # ------------------------------------------------------------------------------------------------------------------
-    def register_command(self, key, _callable):
-        # type: (str, callable) -> None
-        if not callable(_callable):
-            raise TypeError('_callable parameter must be callable! got: %s' % type(_callable))
-        self.proxy_commands[key] = _callable
+    def register_command(self, key: str, command: ServerCommand):
+        if not isinstance(command, ServerCommand):
+            raise TypeError('_callable parameter must be callable! got: %s' % type(command))
+        self.proxy_commands[key] = command
 
     # ------------------------------------------------------------------------------------------------------------------
     def register_adapter(self, adapter):

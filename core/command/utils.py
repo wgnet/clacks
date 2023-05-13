@@ -86,6 +86,7 @@ def command_from_callable(interface, function, cls=ServerCommand):
     kwargs['interface'] = interface
     return cls(**kwargs)
 
+
 # ----------------------------------------------------------------------------------------------------------------------
 def get_command_signature(cmd) -> inspect.Signature:
     if hasattr(cmd, '_callable'):

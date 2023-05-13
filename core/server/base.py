@@ -900,7 +900,7 @@ class ServerBase(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     @overrideable
-    def register_command(self, key, _callable):
+    def register_command(self, key, command):
         """
         Register a callable object as a ServerCommand instance. This will work with the data created by the
         server_command decorator.
@@ -908,27 +908,15 @@ class ServerBase(object):
         :param key: alias under which to register the command
         :type key: str
 
-        :param _callable: callable method
-        :type _callable: callable
+        :param command: callable method
+        :type command: ServerCommand
 
         :return: None
         """
-        # -- we cannot register a command that isn't callable
-        if not callable(_callable):
-            raise ValueError('_callable parameter must be callable! Given: %s' % type(_callable))
-
-        server_command = _callable
-
         # -- by default, we automatically turn a function into a ServerCommand when we don't get one fed to us.
-        if not isinstance(_callable, ServerCommand):
-            command = command_from_callable(interface=self, function=_callable, cls=ServerCommand)
-            if command is None:
-                self.logger.debug('Could not create a ServerCommand from function %s - ignoring.' % _callable.__name__)
-                return
-
-            server_command = command
-
-        self._register_command(key, server_command)
+        if not isinstance(command, ServerCommand):
+            raise TypeError('Cannot register non-ServerCommand commands!')
+        self._register_command(key, command)
 
     # ------------------------------------------------------------------------------------------------------------------
     @overrideable
@@ -965,7 +953,7 @@ class ServerBase(object):
         # -- register the command
         self.commands[key] = srv_cmd
 
-        self.logger.info('Registered Command [%s]: %s' % (key, srv_cmd))
+        self.logger.info(f'Registered Command: {srv_cmd}')
 
 
 # ----------------------------------------------------------------------------------------------------------------------

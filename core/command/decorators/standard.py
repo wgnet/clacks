@@ -92,3 +92,19 @@ def enforce_type_annotation(fn):
         return fn(*args, **kwargs)
 
     return wrapper
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+def enforce_return_type(fn):
+    def wrapper(*args, **kwargs):
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+def return_as_json(fn):
+    def wrapper(*args, **kwargs):
+        result = fn(*args, **kwargs)
+        result = json.dumps(result, sort_keys=True)
+        return result
+    return wrapper

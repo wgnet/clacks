@@ -128,6 +128,11 @@ class ClacksTestCase(unittest.TestCase):
         return self._CLIENT
 
     # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def interface(self):
+        return self.server.interfaces['standard']
+
+    # ------------------------------------------------------------------------------------------------------------------
     def get_server_instance(self):
         server = clacks.ServerBase(identifier='Test Server')
 

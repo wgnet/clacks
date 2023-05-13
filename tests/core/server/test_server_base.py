@@ -145,7 +145,7 @@ class TestServerBase(ClacksTestCase):
         def crash_server():
             raise Exception
 
-        self.server.register_command('crash_server', crash_server)
+        self.server.register_command('crash_server', clacks.command_from_callable(self.interface, crash_server))
 
         try:
             self.client.crash_server()

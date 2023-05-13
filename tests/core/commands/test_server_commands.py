@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import clacks
-import unittest
+from clacks.tests import ClacksTestCase
 
 
 def foo():
@@ -26,44 +26,7 @@ def echo(value=None, other=None):
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-class TestServerCommands(unittest.TestCase):
-
-    server = None
-    client = None
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @staticmethod
-    def get_server_instance():
-        server = clacks.ServerBase(identifier='Test Server')
-        server.register_interface_by_key('standard')
-
-        handler = clacks.handler.SimpleRequestHandler(clacks.marshaller.SimplePackageMarshaller())
-        host, port = 'localhost', clacks.get_new_port('localhost')
-        server.register_handler(host, port, handler)
-
-        return server, (host, port)
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @staticmethod
-    def get_client_instance(address):
-        client = clacks.ClientProxyBase(
-            address,
-            handler=clacks.handler.SimpleRequestHandler(clacks.marshaller.SimplePackageMarshaller())
-        )
-        client.register_interface_by_type('standard')
-        return client
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def setUpClass(cls):
-        cls.server, address = cls.get_server_instance()
-        cls.server.start()
-        cls.client = cls.get_client_instance(address)
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def tearDownClass(cls):
-        cls.server.end()
+class TestServerCommands(ClacksTestCase):
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_get_doc(self):
@@ -71,7 +34,9 @@ class TestServerCommands(unittest.TestCase):
             """FooBar"""
             return True
 
-        command = clacks.ServerCommand(interface=self.server, _callable=doc_test)
+        command = clacks.ServerCommand(interface=self.interface, _callable=doc_test)
+        value = command.docstring
+        assert value == 'FooBar'
         value = command.__doc__()
         assert value == 'FooBar'
 
@@ -81,13 +46,13 @@ class TestServerCommands(unittest.TestCase):
             """FooBar"""
             return True
 
-        command = clacks.ServerCommand(interface=self.server, _callable=doc_test)
-        command.help(verbose=True)
+        command = clacks.ServerCommand(interface=self.interface, _callable=doc_test)
+        help(command)
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_create_bad_command(self):
         try:
-            command = clacks.ServerCommand(interface=self.server, _callable=None)
+            command = clacks.ServerCommand(interface=self.interface, _callable=None)
             self.fail()
         except ValueError:
             pass
@@ -107,7 +72,7 @@ class TestServerCommands(unittest.TestCase):
             self.server.register_command('bad command key', foo)
             self.fail()
         # -- this should raise a ValueError
-        except KeyError:
+        except TypeError:
             pass
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -116,5 +81,5 @@ class TestServerCommands(unittest.TestCase):
             self.server.register_command('key', None)
             self.fail()
         # -- this should raise a ValueError
-        except ValueError:
+        except TypeError:
             pass

@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import logging
-
 from ..command import ServerCommand, is_server_command, command_from_callable
 
 
@@ -151,4 +150,4 @@ class ServerInterface(object):
 
             for command_key in aliases:
                 # -- register the command
-                server.register_command(key=command_key, _callable=value)
+                server.register_command(key=command_key, command=value)
