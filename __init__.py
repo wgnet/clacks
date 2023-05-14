@@ -34,16 +34,11 @@ from .core.utils import one_off_send
 from .core.utils import one_off_receive
 from .core.utils import quick_listening_socket
 
-from .core.command import ServerCommand
 from .core.command import decorators
+from .core.command import ServerCommand
 
-from .core.command.decorators import takes, process_arguments, process_result
-from .core.command.decorators import returns, returns_status_code, aka, fka, hidden, private
-
-from .core.command import arg_processors, result_processors
-from .core.command import register_arg_processor, register_result_processor
-from .core.command import arg_processor_from_key, key_from_arg_processor
-from .core.command import result_processor_from_key, key_from_result_processor
+from .core.command import command_from_callable
+from .core.command.decorators import aka, fka, hidden, private, returns_status_code, takes_header_data
 
 from .core.errors import ReturnCodes
 from .core.errors import error_from_key, register_error_type, key_from_error_type
@@ -52,10 +47,10 @@ from .core.proxy import acquire_proxy
 from .core.proxy import ClientProxyBase
 
 from .core.server import ServerBase, ServerClient
+from .core.interface import list_available_server_interface_types
+from .core.adapters import ServerAdapterBase, adapter_from_key, register_adapter_type
 from .core.handler import BaseRequestHandler, SimpleRequestHandler, JSONHandler, XMLHandler
 from .core.interface import ServerInterface, register_server_interface_type, register_proxy_interface_type
-from .core.interface import list_available_server_interface_types
 from .core.marshaller import BasePackageMarshaller, SimplePackageMarshaller, PickleMarshaller, JSONMarshaller
-from .core.adapters import ServerAdapterBase, adapter_from_key, register_adapter_type
 
 from .core.package import Question, Response, Package

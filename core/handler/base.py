@@ -13,20 +13,20 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import collections
-import logging
-import socket
-import time
-import traceback
-import typing
 import uuid
+import time
+import typing
+import socket
+import logging
+import traceback
+import collections
 
 from .constants import HandlerErrors
 from ..constants import LOG_MSG_LENGTH
-from ..errors import ClacksClientConnectionFailedError
 from ..errors.codes import ReturnCodes
 from ..marshaller import BasePackageMarshaller
 from ..package import Package, Question, Response
+from ..errors import ClacksClientConnectionFailedError
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -216,6 +216,9 @@ class BaseRequestHandler(object):
         :return: ordered dictionary containing the header data
         :rtype: collections.OrderedDict
         """
+        if not payload.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {payload}!')
+
         header_data = collections.OrderedDict()
         if payload.header_data:
             header_data.update(payload.header_data)
@@ -331,6 +334,9 @@ class BaseRequestHandler(object):
         :return: nr of bytes that would result if we were to marshal the payload to a byte sequence.
         :rtype: int
         """
+        if not payload.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {payload}!')
+
         bytes_data = self.marshaller.encode_package(transaction_id, payload)
         return len(bytes_data)
 
@@ -596,6 +602,9 @@ class BaseRequestHandler(object):
         :return: compile a package response buffer, triggering the marshalling method.
         :rtype: bytes
         """
+        if not package.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {package}!')
+
         self.server.logger.debug('Building buffer...')
 
         # -- give adapters the chance to trigger any callbacks or make changes to package pre-compile
@@ -666,6 +675,9 @@ class BaseRequestHandler(object):
 
         :return: None
         """
+        if not package.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {package}!')
+
         if not isinstance(package, Package):
             raise TypeError('Cannot send pure data - all packages must inherit from Package! Got %s' % type(package))
 
@@ -693,6 +705,9 @@ class BaseRequestHandler(object):
 
         :return: None
         """
+        if not response.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {response}!')
+
         # -- give adapters the chance to trigger any callbacks or make changes to packages pre-send
         for adapter in self.adapters:
             adapter.handler_pre_respond(self.server, self, connection, transaction_id, response)

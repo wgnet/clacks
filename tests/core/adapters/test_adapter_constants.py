@@ -15,62 +15,63 @@ limitations under the License.
 """
 import clacks
 from clacks.tests import ClacksTestCase
-
-
-def foo():
-    print('bar')
-
-
-def echo(value=None, other=None):
-    return value
+from clacks import register_adapter_type, adapter_from_key
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-class TestServerCommands(ClacksTestCase):
+class TestAdapterConstants(ClacksTestCase):
 
     # ------------------------------------------------------------------------------------------------------------------
-    def test_get_doc(self):
-        def doc_test():
-            """FooBar"""
-            return True
-
-        command = clacks.ServerCommand(interface=self.interface, _callable=doc_test)
-        value = command.docstring
-        assert value == 'FooBar'
-        value = command.__doc__()
-        assert value == 'FooBar'
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def test_create_bad_command(self):
+    def test_request_bad_adapter(self):
         try:
-            command = clacks.ServerCommand(interface=self.interface, _callable=None)
+            adapter_from_key('foobar')
+            self.fail()
+        except KeyError:
+            pass
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def test_override_adapter(self):
+        class TestAdapter(clacks.ServerAdapterBase):
+            pass
+
+        register_adapter_type('test', TestAdapter)
+
+        try:
+            register_adapter_type('test', TestAdapter, override=False)
+            self.fail()
+        except KeyError:
+            pass
+
+        try:
+            register_adapter_type('test', TestAdapter, override=True)
+        except:
+            self.fail()
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def test_register_bad_adapter(self):
+        class FooBar():
+            pass
+
+        try:
+            register_adapter_type('foobar', FooBar)
             self.fail()
         except ValueError:
             pass
 
-        def foo():
-            print('bar')
-
+    # ------------------------------------------------------------------------------------------------------------------
+    def test_register_base_adapter_type(self):
+        from clacks import ServerAdapterBase
         try:
-            command = clacks.ServerCommand(interface=None, _callable=foo)
+            register_adapter_type('NormalKey', ServerAdapterBase)
             self.fail()
         except ValueError:
             pass
 
     # ------------------------------------------------------------------------------------------------------------------
-    def test_register_bad_command_key(self):
+    def test_adapter_registry_legal_key(self):
+        from clacks.core.adapters.gnutp import GNUTerryPratchettHeaderAdapter
         try:
-            self.server.register_command('bad command key', foo)
+            register_adapter_type('bad key', GNUTerryPratchettHeaderAdapter)
             self.fail()
-        # -- this should raise a ValueError
-        except TypeError:
-            pass
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def test_register_bad_command_value(self):
-        try:
-            self.server.register_command('key', None)
-            self.fail()
-        # -- this should raise a ValueError
-        except TypeError:
+        except KeyError:
             pass

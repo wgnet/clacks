@@ -41,13 +41,15 @@ class TestServerBase(ClacksTestCase):
 
         # -- this should not fail
         command = self.server.setup_logging_broadcast
-        assert isinstance(command, clacks.ServerCommand)
+        assert not isinstance(command, clacks.ServerCommand)
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_digest_bad_question(self):
-        response = self.server.digest(None, None, None, dict(), dict())
-        assert response.traceback is not None
-        assert response.code == clacks.ReturnCodes.BAD_QUESTION
+        try:
+            self.server.digest(None, None, None, dict(), dict())
+            self.fail()
+        except clacks.errors.ClacksBadQuestionError:
+            pass
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_digest_bad_command(self):
@@ -145,7 +147,7 @@ class TestServerBase(ClacksTestCase):
         def crash_server():
             raise Exception
 
-        self.server.register_command('crash_server', crash_server)
+        self.server.register_command('crash_server', clacks.command_from_callable(self.interface, crash_server))
 
         try:
             self.client.crash_server()

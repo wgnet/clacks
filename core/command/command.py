@@ -12,121 +12,37 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
-ServerCommand
-=============
-
-This is purely a utility class - servers will take standard callables and register them using the function name,
-but these are considered "naked" as the server knows nothing about them.
-
-The `ServerCommand` class attempts to make this easier by allowing a user to register decorated method that are
-considered "annotated" using the decorators provided by `Clacks`.
-
-The `ServerCommand` is the only way a server knows how to run a method. As such, the more information a developer
-provides about a command, the better, as the server will be able to provide more intelligent responses.
-
-There are two distinct ways to invoke a `ServerCommand`:
-
-The most common of those 2 ways is through the `digest` method, which is invoked by the `ServerBase` class when a
-command is removed from the queue and executed.
-The server queue _always_ assumes that every item in the queue is a command meant to be executed.
-
-The second, less common way to invoke a `ServerCommand` is to simply call it like a function. As this class implements
-the __call__ magic method, all `ServerCommand` instances function like a thin wrapper around the function they decorate.
-
-There are four distinct phases to a server command's execution process; however, when invoked like a common function,
-only one of these actually triggers: the invocation of the decorated method. It is therefore strongly advised not to
-invoke `ServerCommand` instances directly, but rather to let the server handle all command executions.
-
-The four phases of a `ServerCommand`'s execution are:
-
-Pre-Process
------------
-
-This phase consumes any header data that was passed along with the server `Question` instance, and sees if it contains
-a "kwargs" entry. If this is the case, the command will update any keyword arguments it had before with these new ones.
-
-Argument Processing
--------------------
-
-This phase takes any positionals and keyword arguments that were found, and runs them through the registered argument
-processors for this command.
-
-This allows a user to modify incoming data, _before_ it gets to the method itself. This is supremely useful for cases
-like enforcement of argument types, or conversion from one data type to another for special use cases, like web servers,
-for example, which get a JSON string as input. Argument processors in this case can be used to turn a simple JSON string
-into a set of keyword arguments, allowing for the method implementation to be the same between different handler types,
-just exposing different server command variations.
-
-**Note**:
-
-Argument processors are expected to return a tuple of (list, dict) for positional and keyword arguments respectively.
-Argument processors receive three values as arguments:
-
-- the server command instance invoking them
-- positional arguments ( as *args )
-- keyword arguments ( as **kwargs )
-
-An example implementation would be as follows:
-
-    >>> def example_arg_processor(server_command, *args, **kwargs):
-    ...    return args, kwargs
-
-Execution
----------
-
-This step takes the processed positional and keyword arguments and runs them through the decorated method.
-
-Result Processing
------------------
-
-`Result Processors take the output value of the executed method and are allowed to change it or analyze it. This has
-many uses, including input/output standardization for different server types that use the same method. (same use case
-as argument processors)
-
-    >>> def example_result_processor(server_command, result):
-    ...    return result
-
-Response
---------
-
-Once all information is gathered, including final return value, any exceptions encountered, and information on execution
-time, the Response package is constructed and returned to the server for handling.
-
 """
+import json
+import inspect
 import logging
-import collections
 
 from ..errors import ReturnCodes
 from ..package import Question, Response
 from ..errors import ClacksBadCommandArgsError
-from ..errors import ClacksCommandIsPrivateError
-from ..errors import ClacksBadArgProcessorOutputError
-from ..errors import ClacksCommandUnexpectedReturnValueError
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 class ServerCommand(object):
+    """
+    Base ServerCommand class. All commands registered to a server must be an instance of this class or a subclass of it.
 
-    # ------------------------------------------------------------------------------------------------------------------
+    It provides basic validation on instance, to ensure the wrapped object is actually callable, and to ensure all
+    ServerCommand instances registered are registered as part of a ServerInterface object. This is a basic requirement
+    of all Clacks servers, as it ensures a clacks-friendly approach to server construction.
+
+    As we simply wrap the callable, all decorators previously assigned to it are maintained and will function as normal.
+    """
+
     def __init__(
             self,
             interface,
             _callable,
-            private=False,
-            arg_defaults=None,
-            arg_types=None,
-            return_type=object,
-            help_obj=None,
-            aliases=None,
-            former_aliases=None,
-            arg_processors=None,
-            result_processors=None,
-            returns_status_code=False,
-            **kwargs
     ):
-        if interface is None:
-            raise ValueError('ServerCommand cannot be instanced as separate from a server or interface!')
+        from ..interface import ServerInterface
+
+        if not isinstance(interface, ServerInterface):
+            raise ValueError('ServerCommand cannot be instanced as separate from an interface!')
 
         if not callable(_callable):
             raise ValueError('ServerCommand class can only be instanced with a callable!')
@@ -135,183 +51,224 @@ class ServerCommand(object):
 
         self.interface = interface
         self._callable = _callable
-        self.private = private
 
-        # -- "help obj" allows us to redirect the object being described in the help method from the actual callable.
-        # -- this is used for decorators, which use transient wrapper methods but actually would want to describe the
-        # -- function itself.
-        self.help_obj = help_obj or self._callable
-
-        self.arg_defaults = arg_defaults or dict()
-        self.arg_types = arg_types or dict()
-        self.return_type = return_type
-
-        self.aliases = aliases or list()
-        self.former_aliases = former_aliases or list()
-        self.returns_status_code = returns_status_code
-
-        self.arg_processors = arg_processors or list()
-        self.result_processors = result_processors or list()
-
-        self.accept_encoding = 'text/json'
-
-        # -- this feature allows the user to add extra attributes to their methods, allowing for custom decorators.
-        self.extra_attrs = dict()
-        if hasattr(self._callable, 'extra_attrs'):
-            extra_attrs = getattr(self._callable, 'extra_attrs')
-
-            if not isinstance(extra_attrs, dict):
-                raise TypeError(type(extra_attrs))
-
-            for key, value in extra_attrs.items():
-                self.extra_attrs[key] = value
+        # -- cache a function signature
+        self._signature = inspect.signature(self._callable)
 
     # ------------------------------------------------------------------------------------------------------------------
-    def __getattr__(self, item):
-        if item in self.__dict__:
-            return self.__dict__[item]
-        if item in self.extra_attrs:
-            return self.extra_attrs[item]
-        raise AttributeError
+    @property
+    def signature(self):
+        """
+        Return a Signature instance, created by the "inspect" module.
+
+        This object is used to create smart properties about the wrapped callable assigned to this ServerCommand, so
+        that the command may be interacted with as if it is its callable, without losing the functionalities created by
+        Clacks.
+        """
+        # -- protect this property by not exposing a setter
+        # -- this doesn't actually "protect" it - python can't do that. However, this at least lets the developer know
+        # -- it's not supposed to be assigned.
+        return self._signature
 
     # ------------------------------------------------------------------------------------------------------------------
-    def __repr__(self):
-        # type: () -> str
-        return '%s' % self.help(verbose=False)
+    @property
+    def return_type(self):
+        """
+        Gets the type annotation of the function signature of the callable object, if one was given.
+        """
+        return self.signature.return_annotation
 
     # ------------------------------------------------------------------------------------------------------------------
-    def __str__(self):
-        # type: () -> str
+    @property
+    def is_void(self):
+        """
+        Returns True if no type annotation for the callable was given for its return type.
+        This cannot detect whether nothing is actually returned - just if an annotation was provided!!
+        """
+        return self.return_type is inspect._empty
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def parameters(self):
+        """
+        Returns the Signature Parameter objects from the callable's signature.
+        """
+        return self.signature.parameters
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def arg_defaults(self):
+        """
+        Based on the callable's annotations, return any default values that may have been given.
+        """
+        result = dict()
+        for key, value in self.signature.parameters.items():
+            result[key] = value.default if value.default is not inspect._empty else None
+        return result
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def arg_types(self):
+        """
+        Based on the callable's annotations, return any type annotations that may have been given.
+        This can derive types from defaults, if they are provided but type annotations are not.
+        """
+        result = dict()
+        for key, value in self.signature.parameters.items():
+            annotation = value.annotation
+
+            if annotation is inspect._empty:
+                if key in self.arg_defaults:
+                    annotation = type(self.arg_defaults[key])
+                else:
+                    annotation = None
+
+            result[key] = annotation
+
+        return result
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def decorators(self):
+        result = list()
+
+        for key in dir(self._callable):
+            if key.startswith('_'):
+               continue
+            result.append(key)
+
+        return result
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def docstring(self):
+        """
+        Return the docstring of the assigned callable.
+        """
+        return self._callable.__doc__ or ''
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def to_dict(self) -> dict:
+        """
+        Return this command as a dictionary - this allows us to hash ServerCommand instances to compare them to one
+        another.
+        """
+        result = dict()
+
+        result['interface'] = self.interface.__class__.__name__
+        result['_callable'] = self._callable.__name__
+
+        for key in dir(self._callable):
+            if key.startswith('_'):
+                continue
+            result[key] = getattr(self._callable, key)
+
+        return result
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def __eq__(self, other):
+        """
+        Return True if this ServerCommand is equal to the other that's given.
+        """
+        return hash(self) == hash(other)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def __hash__(self):
+        """
+        Return a hash of this command's to_dict method's result.
+        """
+        # -- this ensures that server commands decorating the same function are considered equal.
+        # -- as server commands must be part of interfaces, python itself is leveraged to prevent collisions, as you
+        # -- cannot declare the same method twice within the same class.
+        return hash(json.dumps(self.to_dict()))
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def get(self, key: str, default: object = None) -> object:
+        """
+        Get an attribute on this server command's callable object. This functions like a default dict, and ensures that
+        ServerCommand instances do not require a standard property layout, opening the door for interfaces to
+        implement their own function decorators.
+        """
+        # -- redirect most getattr calls to the callable
+        if key in dir(self._callable):
+            return getattr(self._callable, key, default)
+        return default
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def __repr__(self) -> str:
+        """
+        Return a string representation of this ServerCommand with function arguments and return type.
+        """
+        params = dict()
+
+        for name, param in self.parameters.items():
+            annotation = param.annotation
+            if not annotation:
+                annotation = ''
+            else:
+                if annotation is inspect._empty:
+                    annotation = ''
+                else:
+                    annotation = f':{annotation}'
+
+            default = param.default
+            if not default:
+                default = ''
+            else:
+                if default is inspect._empty:
+                    default = ''
+                else:
+                    default = f' = {default}'
+
+            params[name] = f'{name}{annotation}{default}'
+
+        return_annotation = f' -> {self.return_type}'
+        if self.is_void:
+            return_annotation = ' -> <void>'
+
+        decorators = ', '.join(self.decorators)
+
+        return f'[{self.__class__.__name__}] ' \
+               f'{{{self._callable.__name__}}} ' \
+               f'<{decorators}> ' \
+               f'({params})' \
+               f'{return_annotation}'
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def __str__(self) -> str:
+        """
+        Same as the __repr__ function. (This calls the __repr__ function)
+        """
         return self.__repr__()
 
     # ------------------------------------------------------------------------------------------------------------------
-    def __doc__(self):
-        # type: () -> str
-        return self.help_obj.__doc__
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def help(self, verbose=True):
-        # type: (bool) -> str
+    def __doc__(self) -> str:
         """
-        Build a helpful string describing this command, using the callable's docstring and the provided type hints
-        for this command.
-
-        :return: a helpful type string
-        :rtype: str
+        Same as the docstring() property.
         """
-        result = '[%s] %s (%s) -> %s' % (
-            self.__class__.__name__,
-            self.help_obj.__name__,
-            ', '.join(
-                [
-                    '%s: %s (%s)' % (key, self.arg_types.get(key), self.arg_defaults.get(key))
-                    for key in self.arg_types
-                ]
-            ),
-            str(self.return_type) if self.return_type is not None else 'None'
-        )
-
-        if self.aliases:
-            result += ' {aliases: %s}' % self.aliases
-
-        if not verbose:
-            return result
-
-        result += '\n%s' % self.help_obj.__doc__ if self.help_obj.__doc__ is not None else ''
-
-        return result
+        return self._callable.__doc__
 
     # ------------------------------------------------------------------------------------------------------------------
     def __call__(self, *args, **kwargs):
         """
         Call this method like a standard callable.
         """
-        args, kwargs = self.process_args(args, kwargs)
-
-        _result = self._callable(*args, **kwargs)
-
-        if self.returns_status_code:
-            result, code = _result
-
-        else:
-            result = _result
-
-        result = self.process_result(result)
-
-        return result
+        return self._callable(*args, **kwargs)
 
     # ------------------------------------------------------------------------------------------------------------------
-    def process_args(self, args, kwargs):
-        input_args, input_kwargs = args, kwargs
-
-        # -- run all argument processors
-        for arg_processor in self.arg_processors:
-            processed_args = arg_processor(self, *args, **kwargs)
-
-            # -- every argument processor must return args and kwargs as a tuple of list and dict
-            # -- by checking this here, we prevent argument processors that are not functioning correctly
-            # -- from corrupting the command process
-            if not isinstance(processed_args, tuple):
-                raise ClacksBadArgProcessorOutputError(
-                    message='Arg processors must return a tuple, got %s!' % type(processed_args),
-                    command=self,
-                )
-
-            if len(processed_args) != 2:
-                raise ClacksBadArgProcessorOutputError(
-                    message='Arg processors must return a tuple of length 2, got %s!' % len(processed_args),
-                    command=self,
-                )
-
-            if not isinstance(processed_args[0], (list, tuple)):
-                raise ClacksBadArgProcessorOutputError(
-                    message='The first element of the arg processor output must be a list or tuple, got %s!' % (
-                        type(processed_args[0])
-                    ),
-                    command=self,
-                )
-
-            if not isinstance(processed_args[1], (dict, collections.OrderedDict)):
-                raise ClacksBadArgProcessorOutputError(
-                    message='The second element of the arg processor output must be a dictionary, got %s!' % (
-                        type(processed_args[1])
-                    ),
-                    command=self,
-                )
-
-            args, kwargs = processed_args
-
-        return args, kwargs
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def process_result(self, value):
-        # -- run all result processors
-        for result_processor in self.result_processors:
-            value = result_processor(self, value)
-        return value
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def digest(self, question):
-        # type: (Question) -> Response
+    def digest(self, question: Question) -> Response:
         """
         Run this method as a response to a question input.
 
         This will call the method with the question's input arguments, but also return information about the process,
         like how much time it took to process.
         """
-        # -- if the method is private, allow it to be called but not used as a question / answer interface.
-        if self.private:
-            raise ClacksCommandIsPrivateError(
-                message='Cannot access private commands!',
-                question=question,
-                command=self,
-            )
-
         try:
             args = list(question.args)
+
         except Exception as e:
             raise ClacksBadCommandArgsError(
-                message='Failed to convert positional arguments (%s) to a list!' % question.args,
+                message=f'Failed to convert positional arguments ({question.args}) to a list!',
                 command=self,
                 question=question,
                 tb=e,
@@ -319,15 +276,14 @@ class ServerCommand(object):
 
         try:
             kwargs = dict(**question.kwargs)
+
         except Exception as e:
             raise ClacksBadCommandArgsError(
-                message='Failed to convert keyword arguments (%s) to a dictionary!' % question.kwargs,
+                message=f'Failed to convert keyword arguments ({question.kwargs}) to a dictionary!',
                 command=self,
                 question=question,
                 tb=e,
             )
-
-        args, kwargs = self.process_args(args, kwargs)
 
         # -- this is not wrapped in a try/except as any unhandled exceptions will be raised as such.
         # -- This way, server commands can choose to implement custom exceptions that clacks can handle
@@ -337,24 +293,9 @@ class ServerCommand(object):
         result = _result
         code = ReturnCodes.OK
 
-        if self.returns_status_code and not isinstance(result, (tuple, list)):
-            raise ClacksCommandUnexpectedReturnValueError(
-                'Command that expected to return a status code did not return an iterable object!'
-                ' Got: (%s) but expected a tuple/list!' % type(result),
-                question=question,
-                command=self,
-            )
-
-        # -- if we reach this code, the above statement has not triggered an early out
-        if self.returns_status_code:
-            result, code = result
-
         # -- if we get a response object, forward it.
         if isinstance(result, Response):
-            result.response = self.process_result(result.response)
             return result
-
-        result = self.process_result(result)
 
         response = Response(
             header_data=dict(),

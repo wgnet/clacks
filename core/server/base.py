@@ -23,7 +23,6 @@ import threading
 import traceback
 
 from ..constants import LOG_MSG_LENGTH
-from ..errors.codes import ReturnCodes
 from ..package import Question, Response
 from ..marshaller import marshaller_from_key
 from ..interface.base import ServerInterface
@@ -31,8 +30,34 @@ from ..utils import get_new_port, is_key_legal
 from ..adapters import ServerAdapterBase, adapter_from_key
 from ..handler import BaseRequestHandler, handler_from_key
 from ..interface.constants import server_interface_from_type
+from ..command import ServerCommand, ServerCommandDigestLoggingHandler
+from ..errors import ClacksBadQuestionError, ClacksCommandNotFoundError
 from ..errors import ClacksClientConnectionFailedError, error_code_from_error
-from ..command import ServerCommand, ServerCommandDigestLoggingHandler, command_from_callable
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+def overrideable(fn):
+    """
+    This decorator allows servers to allow interfaces to override some of their internal methods.
+    Only methods decorated with this decorator will be overrideable.
+    """
+    def wrapper(*args, **kwargs):
+        server = args[0]
+        _fn = fn
+        redirected = False
+
+        for interface in sorted(server.interfaces.values()):
+            if hasattr(interface, fn.__name__):
+                _fn = getattr(interface, fn.__name__)
+                redirected = True
+
+        # -- if we redirect the call, strip the first argument.
+        _args = args[:]
+        if redirected:
+            _args = args[1:]
+
+        return _fn(*_args, **kwargs)
+    return wrapper
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -43,7 +68,6 @@ class ServerBase(object):
     """
 
     _REQUIRED_INTERFACES: list[str] = []
-
     _REQUIRED_ADAPTERS: list[str] = []
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -161,14 +185,12 @@ class ServerBase(object):
         if item in dir(self):
             return super(ServerBase, self).__getattribute__(item)
 
-        if self.get_command(item):
-            return self.get_command(item)
-
-        for interface in self.interfaces.values():
+        # -- by interjecting this, we redirect any "inherited" commands, so that interfaces may override methods.
+        for interface in sorted(self.interfaces.values()):
             if hasattr(interface, item):
                 return getattr(interface, item)
 
-        raise AttributeError
+        raise AttributeError(item)
 
     # ------------------------------------------------------------------------------------------------------------------
     def __repr__(self):
@@ -326,7 +348,7 @@ class ServerBase(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     def register_handler(self, host, port, handler):
-        # type: (str, int, BaseRequestHandler) -> None
+        # type: (str, int, BaseRequestHandler) -> tuple
         """
         Register the provided handler on this server and make it listen on the (host, port) address.
 
@@ -425,8 +447,10 @@ class ServerBase(object):
         try:
             self._respond(handler, connection, transaction_id, header_data, data)
 
-        except Exception as e:
+        except BaseException as e:
             tb = traceback.format_exc()
+
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
 
             response = Response(
                 header_data={'Content-Type': header_data.get('Content-Type', 'text/json')},
@@ -434,6 +458,7 @@ class ServerBase(object):
                 code=error_code_from_error(e),
                 tb=tb,
                 tb_type=type(e),
+                errors=errors
             )
 
             # -- the handler must respond, no matter what.
@@ -472,8 +497,10 @@ class ServerBase(object):
         try:
             response = self.digest(handler, connection, transaction_id, header_data, data)
 
-        except Exception as e:
+        except BaseException as e:
             tb = traceback.format_exc()
+
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
 
             response = Response(
                 header_data={'Content-Type': header_data.get('Content-Type', 'text/json')},
@@ -481,6 +508,7 @@ class ServerBase(object):
                 code=error_code_from_error(e),
                 tb=tb,
                 tb_type=type(e),
+                errors=errors,
             )
 
         # -- inject warnings and errors
@@ -521,39 +549,54 @@ class ServerBase(object):
         try:
             question = Question.load(header_data, data)
 
-        except Exception as e:
+        except BaseException as e:
             exc_info = traceback.format_exc()
+
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
 
             response = Response(
                 header_data=header_data,
                 response=None,
-                code=ReturnCodes.BAD_QUESTION,
+                code=error_code_from_error(e),
                 tb=exc_info,
                 info=dict(),
                 tb_type=type(e),
+                errors=errors,
             )
 
             self.logger.exception('Handler %s Failed loading question from header %s with data %s' % (
                 handler,
                 str(header_data),
                 str(data))
-                                  )
+            )
 
             self.logger.exception(exc_info)
 
             response.accept_encoding = header_data.get('Accept-Encoding', 'text/json')
             return response
 
-        cmd = self.get_command(question.command)
+        if not question.is_valid:
+            raise ClacksBadQuestionError(f'No valid question could be loaded from {data}!')
 
-        if cmd is None:
-            self.logger.exception('Given command %s is not registered!' % question.command)
+        try:
+            cmd = self.get_command(question.command)
+
+        except BaseException as e:
+            code = error_code_from_error(e)
+
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
+
+            tb = traceback.format_exc()
+            self.logger.exception(tb)
+
             response = Response(
                 header_data=header_data,
                 response=None,
-                code=ReturnCodes.NOT_FOUND,
-                tb='Given command %s is not registered!' % question.command,
-                info=dict()
+                code=code,
+                tb=tb,
+                tb_type=type(e),
+                info=dict(),
+                errors=errors
             )
             response.accept_encoding = header_data.get('Accept-Encoding', 'text/json')
             return response
@@ -588,8 +631,10 @@ class ServerBase(object):
             response = command.digest(question)
             return response
 
-        except Exception as e:
+        except BaseException as e:
             tb = traceback.format_exc()
+
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
 
             return Response(
                 header_data={'Content-Type': question.header_data.get('Content-Type', 'text/json')},
@@ -597,6 +642,7 @@ class ServerBase(object):
                 code=error_code_from_error(e),
                 tb=tb,
                 tb_type=type(e),
+                errors=errors,
             )
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -629,79 +675,6 @@ class ServerBase(object):
 
         self.queue.append((handler, connection, transaction_id, header_data, data))
         self.logger.debug('Item %s added to queue. Queue contains %s items.' % (str(data), len(self.queue)))
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def register_command(self, key, _callable, skip_duplicates=False):
-        # type: (str, (callable, ServerCommand), bool) -> None
-        """
-        Register a callable object as a ServerCommand instance. This will work with the data created by the
-        server_command decorator.
-
-        :param key: alias under which to register the command
-        :type key: str
-
-        :param _callable: callable method
-        :type _callable: callable
-
-        :param skip_duplicates: if True, skip registering methods on previously occupied keys.
-        :type skip_duplicates: bool
-
-        :return: None
-        """
-        # -- we cannot register a command that isn't callable
-        if not callable(_callable):
-            raise ValueError('_callable parameter must be callable! Given: %s' % type(_callable))
-
-        # -- by default, we automatically turn a function into a ServerCommand when we don't get one fed to us.
-        if not isinstance(_callable, ServerCommand):
-            command = command_from_callable(interface=self, function=_callable, cls=ServerCommand)
-            if command is None:
-                self.logger.debug('Could not create a ServerCommand from function %s - ignoring.' % _callable.__name__)
-                return
-            _callable = command
-
-        # -- a command must always be known as itself
-        if key not in _callable.aliases:
-            _callable.aliases.append(key)
-
-        self._register_command(key, _callable)
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def _register_command(self, key, srv_cmd):
-        # type: (str, ServerCommand) -> None
-        """
-        Private method to register a command, only accepts pure ServerCommand instances and is expected to be called
-        internally only. To register a command, use "register_command" instead. This is necessary for all aliases
-        and type hints to be discovered.
-
-        :param key: alias under which to register the command
-        :type key: str
-
-        :param srv_cmd: ServerCommand instance
-        :type srv_cmd: ServerCommand
-
-        :return: None
-        """
-        # -- do not register commands that are illegal
-        if not is_key_legal(key):
-            raise KeyError('Key "%s" is not legal for a command!' % key)
-
-        # -- in this method, we cannot register commands that are not a ServerCommand instance.
-        if not isinstance(srv_cmd, ServerCommand):
-            raise ValueError('_register_command requires a ServerCommand instance!')
-
-        # -- if the key collides with one already in the registry, notify the developer but this is not a failure case
-        # -- as some interfaces might override others' commands intentionally. This is a messy way to work though,
-        # -- so throw a warning regardless.
-        if self.commands.get(key) is not None:
-            msg = 'Command key %s is being assigned twice - is not allowed!' % key
-            self.logger.error(msg)
-            raise Exception(msg)
-
-        # -- register the command
-        self.commands[key] = srv_cmd
-
-        self.logger.info('Registered Command [%s]: %s' % (key, srv_cmd))
 
     # ------------------------------------------------------------------------------------------------------------------
     def remove_client(self, client):
@@ -931,6 +904,7 @@ class ServerBase(object):
         gc.collect()
 
     # ------------------------------------------------------------------------------------------------------------------
+    @overrideable
     def get_command(self, key):
         # type: (str) -> ServerCommand
         """
@@ -942,7 +916,66 @@ class ServerBase(object):
         :return: ServerCommand instance registered under this key
         :rtype: ServerCommand
         """
+        if key not in self.commands:
+            raise ClacksCommandNotFoundError(f'Command {key} could not be found!')
         return self.commands.get(key)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @overrideable
+    def register_command(self, key, command):
+        """
+        Register a callable object as a ServerCommand instance. This will work with the data created by the
+        server_command decorator.
+
+        :param key: alias under which to register the command
+        :type key: str
+
+        :param command: callable method
+        :type command: ServerCommand
+
+        :return: None
+        """
+        # -- by default, we automatically turn a function into a ServerCommand when we don't get one fed to us.
+        if not isinstance(command, ServerCommand):
+            raise TypeError('Cannot register non-ServerCommand commands!')
+        self._register_command(key, command)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @overrideable
+    def _register_command(self, key, srv_cmd):
+        """
+        Private method to register a command, only accepts pure ServerCommand instances and is expected to be called
+        internally only. To register a command, use "register_command" instead. This is necessary for all aliases
+        and type hints to be discovered.
+
+        :param key: alias under which to register the command
+        :type key: str
+
+        :param srv_cmd: ServerCommand instance
+        :type srv_cmd: ServerCommand
+
+        :return: None
+        """
+        # -- do not register commands that are illegal
+        if not is_key_legal(key):
+            raise KeyError('Key "%s" is not legal for a command!' % key)
+
+        # -- in this method, we cannot register commands that are not a ServerCommand instance.
+        if not isinstance(srv_cmd, ServerCommand):
+            raise ValueError('_register_command requires a ServerCommand instance!')
+
+        # -- if the key collides with one already in the registry, notify the developer but this is not a failure case
+        # -- as some interfaces might override others' commands intentionally. This is a messy way to work though,
+        # -- so throw a warning regardless.
+        if self.commands.get(key) is not None:
+            msg = 'Command key %s is being assigned twice - is not allowed!' % key
+            self.logger.error(msg)
+            raise Exception(msg)
+
+        # -- register the command
+        self.commands[key] = srv_cmd
+
+        self.logger.info(f'Registered Command: {srv_cmd}')
 
 
 # ----------------------------------------------------------------------------------------------------------------------

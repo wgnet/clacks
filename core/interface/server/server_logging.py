@@ -17,11 +17,10 @@ import logging
 import sys
 import typing
 
-from ..base import ServerInterface
-from ..constants import register_server_interface_type
-from ...command import returns, takes
-from ...utils import StreamingSocket
 from ...utils import get_new_port
+from ..base import ServerInterface
+from ...utils import StreamingSocket
+from ..constants import register_server_interface_type
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -37,8 +36,6 @@ class ServerLoggingInterface(ServerInterface):
         self.stream.stop()
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'host': str})
-    @returns(tuple)
     def setup_logging_broadcast(self, host):
         # type: (str) -> typing.Tuple[str, int]
         port = get_new_port(host)

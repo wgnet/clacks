@@ -67,6 +67,7 @@ def key_from_error_type(error_type):
             if value != error_type:
                 continue
             return key
+
     else:
         for key, value in error_registry.items():
             if not isinstance(error_type, value):

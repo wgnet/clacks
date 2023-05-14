@@ -13,15 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from . import adapters
-from . import command
-from . import constants
+from . import proxy
+from . import utils
+from . import server
 from . import errors
 from . import handler
+from . import command
+from . import package
+from . import adapters
+from . import constants
 from . import interface
 from . import marshaller
-from . import package
-from . import proxy
-from . import server
-from . import utils
 from .errors import codes

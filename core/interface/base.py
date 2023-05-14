@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import logging
-
 from ..command import ServerCommand, is_server_command, command_from_callable
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 class ServerInterface(object):
+
+    _PRIORITY = 0
 
     _COMMAND_CLASS = ServerCommand
 
@@ -39,6 +40,10 @@ class ServerInterface(object):
 
         if not issubclass(self._COMMAND_CLASS, ServerCommand):
             raise TypeError('All server commands must inherit from the base clacks.ServerCommand class!')
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def __lt__(self, other):
+        return self._PRIORITY < other._PRIORITY
 
     # ------------------------------------------------------------------------------------------------------------------
     def _initialize(self, parent):
@@ -136,20 +141,19 @@ class ServerInterface(object):
             if not self._can_register_command(key):
                 continue
 
-            value = getattr(self, key)
+            _callable = getattr(self, key)
 
             # -- Construct a server command, extracting any decorated information that might exist.
-            value = self._construct_server_command(value)
+            value = self._construct_server_command(_callable)
 
             if not value:
                 continue
 
-            if key not in value.aliases:
-                value.aliases.append(key)
+            aliases = [key]
 
-            # -- register commands under their key, any of their aliases and any of their former aliases
-            keys = value.aliases + value.former_aliases
+            if hasattr(_callable, 'aliases'):
+                aliases += _callable.aliases
 
-            for command_key in keys:
+            for command_key in aliases:
                 # -- register the command
-                server.register_command(key=command_key, _callable=value)
+                server.register_command(key=command_key, command=value)
