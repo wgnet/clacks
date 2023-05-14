@@ -129,6 +129,18 @@ class ServerCommand(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
+    def decorators(self):
+        result = list()
+
+        for key in dir(self._callable):
+            if key.startswith('_'):
+               continue
+            result.append(key)
+
+        return result
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
     def docstring(self):
         """
         Return the docstring of the assigned callable.
@@ -179,7 +191,7 @@ class ServerCommand(object):
         """
         # -- redirect most getattr calls to the callable
         if key in dir(self._callable):
-            return getattr(self._callable, key)
+            return getattr(self._callable, key, default)
         return default
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -188,6 +200,7 @@ class ServerCommand(object):
         Return a string representation of this ServerCommand with function arguments and return type.
         """
         params = dict()
+
         for name, param in self.parameters.items():
             annotation = param.annotation
             if not annotation:
@@ -213,8 +226,11 @@ class ServerCommand(object):
         if self.is_void:
             return_annotation = ' -> <void>'
 
+        decorators = ', '.join(self.decorators)
+
         return f'[{self.__class__.__name__}] ' \
                f'{{{self._callable.__name__}}} ' \
+               f'<{decorators}> ' \
                f'({params})' \
                f'{return_annotation}'
 

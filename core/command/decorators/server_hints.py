@@ -69,21 +69,26 @@ def returns_status_code(fn):
 
     NOTE: This decorator on its own does nothing - it works in conjunction with the "status_code" adapter!
     """
-    def wrapper(*args, **kwargs):
-        interface = args[0]
-        server = interface.server
-
-        if 'status_code' not in server.adapters:
-            raise Exception(
-                f'returns_status_code decorator is used but containing server does not use the correct adapter!'
-            )
-
-        return fn(*args, **kwargs)
-
     # -- because we are wrapping the function, our decorator values must be set on the wrapper, not the function.
-    wrapper.returns_status_code = True
-    wrapper.is_server_command = True
-    return wrapper
+    fn.returns_status_code = True
+    fn.is_server_command = True
+    return fn
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+def takes_header_data(fn):
+    """
+    Tells the server this command takes any incoming header data as a keyword argument.
+
+    This data will be fed to the command as a keyword argument named "_header_data".
+    For this to work, the adoption of the "header_data_as_kwarg" adapter is required.
+
+    NOTE: This decorator on its own does nothing - it works in conjunction with the "header_data_as_kwarg" adapter!
+    """
+    # -- because we are wrapping the function, our decorator values must be set on the wrapper, not the function.
+    fn.takes_header_data = True
+    fn.is_server_command = True
+    return fn
 
 
 # ----------------------------------------------------------------------------------------------------------------------

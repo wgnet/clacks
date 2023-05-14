@@ -348,7 +348,7 @@ class ServerBase(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     def register_handler(self, host, port, handler):
-        # type: (str, int, BaseRequestHandler) -> None
+        # type: (str, int, BaseRequestHandler) -> tuple
         """
         Register the provided handler on this server and make it listen on the (host, port) address.
 
@@ -450,12 +450,15 @@ class ServerBase(object):
         except BaseException as e:
             tb = traceback.format_exc()
 
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
+
             response = Response(
                 header_data={'Content-Type': header_data.get('Content-Type', 'text/json')},
                 response=None,
                 code=error_code_from_error(e),
                 tb=tb,
                 tb_type=type(e),
+                errors=errors
             )
 
             # -- the handler must respond, no matter what.
@@ -497,12 +500,15 @@ class ServerBase(object):
         except BaseException as e:
             tb = traceback.format_exc()
 
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
+
             response = Response(
                 header_data={'Content-Type': header_data.get('Content-Type', 'text/json')},
                 response=None,
                 code=error_code_from_error(e),
                 tb=tb,
                 tb_type=type(e),
+                errors=errors,
             )
 
         # -- inject warnings and errors
@@ -546,13 +552,16 @@ class ServerBase(object):
         except BaseException as e:
             exc_info = traceback.format_exc()
 
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
+
             response = Response(
                 header_data=header_data,
                 response=None,
-                code=ReturnCodes.BAD_QUESTION,
+                code=error_code_from_error(e),
                 tb=exc_info,
                 info=dict(),
                 tb_type=type(e),
+                errors=errors,
             )
 
             self.logger.exception('Handler %s Failed loading question from header %s with data %s' % (
@@ -571,15 +580,20 @@ class ServerBase(object):
 
         except BaseException as e:
             code = error_code_from_error(e)
+
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
+
             tb = traceback.format_exc()
             self.logger.exception(tb)
+
             response = Response(
                 header_data=header_data,
                 response=None,
                 code=code,
                 tb=tb,
                 tb_type=type(e),
-                info=dict()
+                info=dict(),
+                errors=errors
             )
             response.accept_encoding = header_data.get('Accept-Encoding', 'text/json')
             return response
@@ -617,12 +631,15 @@ class ServerBase(object):
         except BaseException as e:
             tb = traceback.format_exc()
 
+            errors = [str(e.message) if hasattr(e, 'message') else str(e)]
+
             return Response(
                 header_data={'Content-Type': question.header_data.get('Content-Type', 'text/json')},
                 response=None,
                 code=error_code_from_error(e),
                 tb=tb,
                 tb_type=type(e),
+                errors=errors,
             )
 
     # ------------------------------------------------------------------------------------------------------------------

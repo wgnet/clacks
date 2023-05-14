@@ -75,6 +75,13 @@ register_error_type(ClacksUnrecognizedCommandAliasError.key, ClacksUnrecognizedC
 
 
 # ----------------------------------------------------------------------------------------------------------------------
+class ClacksBadResponseError(ClacksCommandErrorBaseBase):
+    key = 'clacks_bad_response'
+    label = 'Bad Response'
+    code = ReturnCodes.BAD_RESPONSE
+
+
+# ----------------------------------------------------------------------------------------------------------------------
 class ClacksBadCommandArgsError(ClacksCommandErrorBaseBase):
     key = 'clacks_bad_command_args'
     label = 'Bad Command Args'

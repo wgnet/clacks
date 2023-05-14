@@ -15,19 +15,17 @@ limitations under the License.
 """
 from .base import ServerAdapterBase
 from .constants import register_adapter_type
-from ..errors import ClacksBadResponseError
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-class ClacksStatusCodeAdapter(ServerAdapterBase):
+class HeaderDataAsKwargAdapter(ServerAdapterBase):
 
     # ------------------------------------------------------------------------------------------------------------------
-    def server_post_digest(self, server, handler, connection, transaction_id, header_data, data, response):
-        # -- if the response already contains a traceback, this is not relevant
-        if response.traceback:
-            return
-
+    def server_pre_digest(self, server, handler, connection, transaction_id, header_data, data):
         command = data.get('command')
+
+        if not command:
+            return
 
         srv_command = server.get_command(command)
         if not srv_command:
@@ -36,22 +34,12 @@ class ClacksStatusCodeAdapter(ServerAdapterBase):
             return
 
         # -- do nothing if the incoming command does not return a status code
-        if not srv_command.get('returns_status_code', False):
+        if not srv_command.get('takes_header_data', False):
             return
 
-        if not isinstance(response.response, tuple):
-            msg = f'Command {command} did not return a tuple result with a status code!'
-            raise ClacksBadResponseError(msg)
-
-        if not isinstance(response.response[1], int):
-            msg = f'Command {command} did not return an integer as its status code!'
-            raise ClacksBadResponseError(msg)
-
-        value, code = response.response
-
-        # -- transmute our response
-        response.response = value
-        response.code = code
+        if 'kwargs' not in data:
+            data['kwargs'] = dict()
+        data['kwargs']['_header_data'] = header_data
 
 
-register_adapter_type('status_code', ClacksStatusCodeAdapter)
+register_adapter_type('header_data_as_kwarg', HeaderDataAsKwargAdapter)
