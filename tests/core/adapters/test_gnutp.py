@@ -18,4 +18,11 @@ from clacks.tests import ClacksTestCase
 
 # ----------------------------------------------------------------------------------------------------------------------
 class TestGNUTerryPratchett(ClacksTestCase):
-    pass
+
+    server_adapters = ['gnu']
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def test_payload(self):
+        response = self.client.list_commands()
+        if not response.header_data.get('X-Clacks-Overhead') == 'GNU Terry Pratchett':
+            self.fail()

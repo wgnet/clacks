@@ -38,7 +38,10 @@ class SimpleRequestHandler(BaseRequestHandler):
     def encode_question_header(self, transaction_id, payload, expected_content_length):
         # type: (str, Package, int) -> bytes
         if not isinstance(payload, Question):
-            raise ValueError('Expected Question, got %s' % payload)
+            raise ValueError(f'Expected Question, got {payload}')
+
+        if not payload.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {payload}!')
 
         content_length = self.get_content_length(transaction_id, payload)
 
@@ -67,7 +70,10 @@ class SimpleRequestHandler(BaseRequestHandler):
     def encode_response_header(self, transaction_id, payload, expected_content_length):
         # type: (str, Response, int) -> bytes
         if not isinstance(payload, Response):
-            raise ValueError('Expected Response, got %s' % payload)
+            raise ValueError(f'Expected Response, got {payload}')
+
+        if not payload.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {payload}!')
 
         content_length = self.get_content_length(transaction_id, payload)
         if content_length != expected_content_length:

@@ -22,6 +22,21 @@ import unittest
 class TestServerInterface(clacks.ServerInterface):
 
     # ------------------------------------------------------------------------------------------------------------------
+    @clacks.decorators.returns_status_code
+    def returns_status_code(self):
+        return None, clacks.ReturnCodes.OK
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @clacks.decorators.returns_status_code
+    def returns_status_code_bad_value(self):
+        return None
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @clacks.decorators.returns_status_code
+    def returns_status_code_bad_type(self):
+        return None, 'foobar'
+
+    # ------------------------------------------------------------------------------------------------------------------
     @clacks.decorators.aka(['PRINCE'])
     def aka(self, arg):
         return arg
@@ -54,6 +69,8 @@ class ClacksTestCase(unittest.TestCase):
         'file_io',
         'decorator_test',
     ]
+
+    server_adapters = []
 
     proxy_interfaces = [
         'standard',
@@ -95,6 +112,9 @@ class ClacksTestCase(unittest.TestCase):
 
         for interface in self.server_interfaces:
             s.register_interface_by_key(interface)
+
+        for adapter in self.server_adapters:
+            s.register_adapter_by_key(adapter)
 
         a = s.register_handler('localhost', 0, self.create_handler())
 

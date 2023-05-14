@@ -38,7 +38,7 @@ from .core.command import decorators
 from .core.command import ServerCommand
 
 from .core.command import command_from_callable
-from .core.command.decorators import aka, fka, hidden, private
+from .core.command.decorators import aka, fka, hidden, private, returns_status_code
 
 from .core.errors import ReturnCodes
 from .core.errors import error_from_key, register_error_type, key_from_error_type

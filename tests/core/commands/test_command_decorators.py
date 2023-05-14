@@ -20,6 +20,26 @@ from clacks.tests import ClacksTestCase
 # ----------------------------------------------------------------------------------------------------------------------
 class TestCommandDecorators(ClacksTestCase):
 
+    server_adapters = ['status_code']
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def test_return_status_code(self):
+        a = self.client.returns_status_code()
+        assert a.response is None
+        assert a.code is clacks.ReturnCodes.OK
+
+        try:
+            _ = self.client.returns_status_code_bad_value()
+            self.fail()
+        except TypeError:
+            pass
+
+        try:
+            _ = self.client.returns_status_code_bad_type()
+            self.fail()
+        except TypeError:
+            pass
+
     # ------------------------------------------------------------------------------------------------------------------
     def test_aka(self):
         assert self.client.aka('prince').response == 'prince'

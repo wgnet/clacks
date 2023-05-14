@@ -49,8 +49,10 @@ def fka(former_aliases=None):
 # ----------------------------------------------------------------------------------------------------------------------
 def private(fn):
     """
-    Tells the server this method is private. This ensures that it cannot be called by a client, but it may be called
-    by the server itself. Private methods are not hidden - they still get registered as functions!
+    Tells the server this method is private.
+
+    This ensures that it cannot be called by a client, but it may be called by the server itself.
+    Private methods are not hidden - they still get registered as functions!
     """
     fn.private = True
     fn.is_server_command = True
@@ -58,11 +60,40 @@ def private(fn):
 
 
 # ----------------------------------------------------------------------------------------------------------------------
+def returns_status_code(fn):
+    """
+    Tells the server that this method returns a "status code".
+
+    This assumes the called function returns a tuple of <result> / <int> where the second element is a status code.
+    This code need not be included in the clacks.core.errors.ReturnCodes enum, but it _does_ need to be an integer.
+
+    NOTE: This decorator on its own does nothing - it works in conjunction with the "status_code" adapter!
+    """
+    def wrapper(*args, **kwargs):
+        interface = args[0]
+        server = interface.server
+
+        if 'status_code' not in server.adapters:
+            raise Exception(
+                f'returns_status_code decorator is used but containing server does not use the correct adapter!'
+            )
+
+        return fn(*args, **kwargs)
+
+    # -- because we are wrapping the function, our decorator values must be set on the wrapper, not the function.
+    wrapper.returns_status_code = True
+    wrapper.is_server_command = True
+    return wrapper
+
+
+# ----------------------------------------------------------------------------------------------------------------------
 def hidden(fn):
     """
-    Tells the server this method is hidden. This ensures the decorated method is never registered as a server command.
-    This is used in interfaces, which are expected to explicitly declare internal methods using
-    this decorator to ensure that they do not get registered as server commands.
+    Tells the server this method is hidden.
+
+    This ensures the decorated method is never registered as a server command. This is used in interfaces, which
+    are expected to explicitly declare internal methods using this decorator to ensure that they do not get
+    registered as server commands.
     """
     fn.hidden = True
     fn.is_server_command = False

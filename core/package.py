@@ -32,6 +32,7 @@ from .errors import error_from_key, key_from_error_type
 class Package(object):
     """
     Base class for all packages, both Questions and Answers.
+
     This works with a payload attribute, which contains all arbitrary data that Questions and Answers can contain.
     """
 
@@ -40,6 +41,21 @@ class Package(object):
         # type: (dict) -> None
         self.payload = payload
         self.accept_encoding = 'text/json'
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def __repr__(self):
+        return f'[{self.__class__.__name__}] ({self.payload})'
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def is_valid(self):
+        return self._validate()
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def _validate(self):
+        if 'header_data' not in self.payload:
+            return False
+        return True
 
     # ------------------------------------------------------------------------------------------------------------------
     @classmethod
@@ -76,6 +92,14 @@ class Question(Package):
                 kwargs=kwargs
             )
         )
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def _validate(self):
+        if not super(Question, self)._validate():
+            return False
+        if 'command' not in self.payload:
+            return False
+        return True
 
     # ------------------------------------------------------------------------------------------------------------------
     def __repr__(self):
@@ -155,6 +179,16 @@ class Response(Package):
         # -- initialize errors
         self.errors = errors
         self.warnings = warnings
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def _validate(self):
+        if not super(Response, self)._validate():
+            return False
+        if 'response' not in self.payload:
+            return False
+        if 'code' not in self.payload:
+            return False
+        return True
 
     # ------------------------------------------------------------------------------------------------------------------
     def __repr__(self):
