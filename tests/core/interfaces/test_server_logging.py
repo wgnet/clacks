@@ -33,7 +33,7 @@ class TestServerLoggingInterface(ClacksTestCase):
         def foo():
             print('bar')
 
-        self.server.register_command('foo', foo)
+        self.server.register_command('foo', clacks.command_from_callable(self.interface, foo))
 
         stream = open('output.txt', 'w+')
 

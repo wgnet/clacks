@@ -13,22 +13,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import socket
-
 from .base import ServerAdapterBase
 from .constants import register_adapter_type
-from ..package import Package
 
 
 # ------------------------------------------------------------------------------------------------------------------
 class GNUTerryPratchettHeaderAdapter(ServerAdapterBase):
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_pre_respond(self, connection, transaction_id, package):
-        # type: (socket.socket, str, Package) -> None
+    def handler_pre_respond(self, server, handler, connection, transaction_id, package):
         if 'header_data' not in package.payload:
             package.payload['header_data'] = dict()
-
         package.header_data['X-Clacks-Overhead'] = 'GNU Terry Pratchett'
 
 

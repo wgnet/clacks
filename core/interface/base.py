@@ -14,29 +14,39 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import logging
-
-from ..command import ServerCommand
+from ..command import ServerCommand, is_server_command, command_from_callable
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 class ServerInterface(object):
 
-    COMMON_ATTRIBUTES = {}
+    _PRIORITY = 0
 
-    ONLY_REGISTER_DECORATED_COMMANDS = False
+    _COMMAND_CLASS = ServerCommand
 
-    REQUIRED_INTERFACES = []
+    _COMMON_ATTRIBUTES = {}
 
-    REQUIRED_ADAPTERS = []
+    _ONLY_REGISTER_DECORATED_COMMANDS = False
+
+    _REQUIRED_INTERFACES = []
+
+    _REQUIRED_ADAPTERS = []
 
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self):
+        self.parent = None
         self.commands = dict()
         self.server = None
 
+        if not issubclass(self._COMMAND_CLASS, ServerCommand):
+            raise TypeError('All server commands must inherit from the base clacks.ServerCommand class!')
+
     # ------------------------------------------------------------------------------------------------------------------
-    def _initialize(self):
-        # type: () -> bool
+    def __lt__(self, other):
+        return self._PRIORITY < other._PRIORITY
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def _initialize(self, parent):
         """
         This method is called just before the server is started - this gives handlers, adapters and interfaces the
         opportunity to do some last-minute changes and resource gathering.
@@ -44,13 +54,78 @@ class ServerInterface(object):
         :return: True if successful, if False, the server will not be started.
         :rtype: bool
         """
-        pass
+        self.parent = parent
+        return True
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
     def logger(self):
         # type: () -> logging.Logger
         return self.server.logger
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def _can_register_command(self, key):
+        # -- methods starting with underscores are considered internally private to the interface itself and are
+        # -- ignored.
+        # -- this is different from the "private" flag through decorators which can create methods that can be
+        # -- called on the server layer but not by a proxy.
+        if key.startswith('_'):
+            return False
+
+        # -- do not register the register method itself, or our class attributes.
+        if key in [
+            'register',
+        ]:
+            return False
+
+        value = getattr(self, key)
+
+        if not value:
+            return False
+
+        if not callable(value):
+            return False
+
+        # -- if we only want to register decorated commands, then only register those.
+        if self._ONLY_REGISTER_DECORATED_COMMANDS:
+            if not is_server_command(value):
+                return False
+
+        for attr in self._COMMON_ATTRIBUTES:
+            if hasattr(value, attr):
+                val = getattr(value, attr)
+
+                if isinstance(val, list):
+                    setattr(value, attr, val + self._COMMON_ATTRIBUTES[attr])
+
+                elif isinstance(val, dict):
+                    val.update(self._COMMON_ATTRIBUTES[attr])
+                else:
+                    setattr(value, attr, self._COMMON_ATTRIBUTES[attr])
+
+            elif not hasattr(value, attr):
+                value.__dict__[attr] = self._COMMON_ATTRIBUTES[attr]
+
+        # -- server interfaces should not register hidden commands
+        if hasattr(value, 'hidden') and getattr(value, 'hidden'):
+            return False
+
+        return True
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def _construct_server_command(self, fn):
+        command_class = self._COMMAND_CLASS
+
+        if hasattr(fn, 'command_class'):
+            if not issubclass(fn.command_class, ServerCommand):
+                raise TypeError(
+                    f'Declared command class {fn.command_class} for function {fn} does not inherit '
+                    f'from clacks.ServerCommand! All Clacks Server Commands must inherit from this base class.'
+                )
+
+            command_class = fn.command_class
+
+        return command_from_callable(interface=self, function=fn, cls=command_class)
 
     # ------------------------------------------------------------------------------------------------------------------
     def register(self, server):
@@ -63,45 +138,22 @@ class ServerInterface(object):
         # -- on interfaces, every command is registered, except commands that start with an underscore, making
         # -- as private or internal.
         for key in dir(self):
-            # -- methods starting with underscores are considered internally private to the interface itself and are
-            # -- ignored.
-            # -- this is different from the "private" flag through decorators which can create methods that can be
-            # -- called on the server layer but not by a proxy.
-            if key.startswith('_'):
+            if not self._can_register_command(key):
                 continue
 
-            # -- do not register this method itself
-            if key == 'register':
-                continue
+            _callable = getattr(self, key)
 
-            value = getattr(self, key)
+            # -- Construct a server command, extracting any decorated information that might exist.
+            value = self._construct_server_command(_callable)
 
             if not value:
                 continue
 
-            if not callable(value):
-                continue
+            aliases = [key]
 
-            # -- if we only want to register decorated commands, then only register those.
-            if self.ONLY_REGISTER_DECORATED_COMMANDS:
-                if not ServerCommand.is_decorated(value):
-                    continue
+            if hasattr(_callable, 'aliases'):
+                aliases += _callable.aliases
 
-            for attr in self.COMMON_ATTRIBUTES:
-                if hasattr(value, attr):
-                    val = getattr(value, attr)
-                    if isinstance(val, list):
-                        setattr(value, attr, val + self.COMMON_ATTRIBUTES[attr])
-                    elif isinstance(val, dict):
-                        val.update(self.COMMON_ATTRIBUTES[attr])
-                    else:
-                        setattr(value, attr, self.COMMON_ATTRIBUTES[attr])
-                elif not hasattr(value, attr):
-                    value.__dict__[attr] = self.COMMON_ATTRIBUTES[attr]
-
-            # -- if methods have been decorated, use that decoration
-            cmd = ServerCommand.construct(interface=self, function=value)
-            if cmd is not None:
-                value = cmd
-
-            server.register_command(key=key, _callable=value)
+            for command_key in aliases:
+                # -- register the command
+                server.register_command(key=command_key, command=value)

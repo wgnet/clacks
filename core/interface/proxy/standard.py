@@ -15,7 +15,6 @@ limitations under the License.
 """
 from ..base import ServerInterface
 from ..constants import register_proxy_interface_type
-from ...command import takes
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -26,40 +25,35 @@ class StandardProxyInterface(ServerInterface):
         return self.server.question('describe')
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'command': str})
-    def command_help(self, command):
+    def command_help(self, command: str) -> str:
         return self.server.question('command_help', command)
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'command': str})
-    def command_info(self, command):
+    def command_info(self, command: str) -> dict:
         return self.server.question('command_info', command)
 
     # ------------------------------------------------------------------------------------------------------------------
-    def list_commands(self):
+    def list_commands(self) -> list:
         return self.server.question('list_commands')
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'address': tuple})
-    def disconnect_client(self, address):
+    def disconnect_client(self, address: tuple) -> None:
         self.server.question('disconnect_client', address)
 
     # ------------------------------------------------------------------------------------------------------------------
-    def shutdown(self):
+    def shutdown(self) -> None:
         self.server.question('shutdown')
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'command': str})
-    def command_exists(self, command):
+    def command_exists(self, command: str) -> None:
         return self.server.question('command_exists', command)
 
     # ------------------------------------------------------------------------------------------------------------------
-    def implemented_interfaces(self):
+    def implemented_interfaces(self) -> list:
         return self.server.question('implemented_interfaces')
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'interface_type': str})
-    def implements_interface(self, interface_type):
+    def implements_interface(self, interface_type: str) -> bool:
         return self.server.question('implements_interface', interface_type)
 
 

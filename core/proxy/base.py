@@ -31,26 +31,22 @@ implemented, without needing to make the code that generates these classes too c
 import functools
 import logging
 import socket
-import sys
 import threading
 import time
 import typing
 import uuid
 
 from .utils import register_proxy_type
+from ..command import ServerCommand
 from ..adapters import ServerAdapterBase
 from ..handler import BaseRequestHandler
 from ..interface import ServerInterface, proxy_interface_from_type
 from ..package import Question, Response
 
-# -- python 3 does not have "unicode", but it does have "bytes".
-_unicode = bytes
-if sys.version_info.major == 2:
-    _unicode = unicode
-
 
 # ----------------------------------------------------------------------------------------------------------------------
 class ClientProxyBase(object):
+
     connection_retries = 5
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -58,7 +54,7 @@ class ClientProxyBase(object):
         if not isinstance(address, tuple):
             raise TypeError('Address must be a tuple, got %s!' % type(address))
 
-        if not isinstance(address[0], (str, _unicode)):
+        if not isinstance(address[0], (str, bytes)):
             raise TypeError('Host must be a string, got %s' % type(address[0]))
 
         if not isinstance(address[1], int):
@@ -94,7 +90,7 @@ class ClientProxyBase(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
-    def connected(self):
+    def connected(self) -> bool:
         try:
             self.socket.getsockname()
             return True
@@ -102,15 +98,14 @@ class ClientProxyBase(object):
             return False
 
     # ------------------------------------------------------------------------------------------------------------------
-    def register_interface_by_type(self, interface_type):
-        # type: (str) -> None
+    def register_interface_by_type(self, interface_type: str) -> bool:
         """
         From a key string, register an interface that indicates the type of the interface.
 
         :param interface_type: the interface type to create and register
         :type interface_type: str
 
-        :return: None
+        :return: True if registry was successful
         """
         interface = proxy_interface_from_type(interface_type)
         if interface is None:
@@ -118,10 +113,11 @@ class ClientProxyBase(object):
 
         if interface_type in self.interfaces:
             self.logger.warning('Server %s already implements interface %s!' % (self, interface_type))
-            return
+            return False
 
         interface = interface()
         self.register_interface(interface_type, interface)
+        return True
 
     # ------------------------------------------------------------------------------------------------------------------
     def register_interface(self, key, interface):
@@ -143,11 +139,10 @@ class ClientProxyBase(object):
         interface.register(self)
 
     # ------------------------------------------------------------------------------------------------------------------
-    def register_command(self, key, _callable):
-        # type: (str, callable) -> None
-        if not callable(_callable):
-            raise TypeError('_callable parameter must be callable! got: %s' % type(_callable))
-        self.proxy_commands[key] = _callable
+    def register_command(self, key: str, command: ServerCommand):
+        if not isinstance(command, ServerCommand):
+            raise TypeError('_callable parameter must be callable! got: %s' % type(command))
+        self.proxy_commands[key] = command
 
     # ------------------------------------------------------------------------------------------------------------------
     def register_adapter(self, adapter):
@@ -156,13 +151,6 @@ class ClientProxyBase(object):
             raise TypeError('%s is not a ServerAdapterBase instance!' % adapter)
         self.adapters.append(adapter)
         self.handler.register_adapter(adapter)
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def get_command(self, key):
-        response = self.question('get_command', key)
-        if response is not None and response.traceback:
-            self.logger.exception(response.traceback)
-        return response.response
 
     # ------------------------------------------------------------------------------------------------------------------
     def disconnect(self):
@@ -183,12 +171,19 @@ class ClientProxyBase(object):
         return functools.partial(self.question, key)
 
     # ------------------------------------------------------------------------------------------------------------------
+    def _initialize(self):
+        self.handler.register_server(self)
+        self.handler._initialize(self)
+
+    # ------------------------------------------------------------------------------------------------------------------
     def connect(self):
         """
         Connect this proxy to the given address.
 
         :return: None
         """
+        self._initialize()
+
         retries = 1
         while not self.connected and retries <= self.connection_retries:
             try:
@@ -284,16 +279,13 @@ class ClientProxyBase(object):
         header_data, response = self.send(question, timeout=timeout)
 
         if response is not None and response.traceback:
-            traceback_type = Exception
-            if response.traceback_type is not None:
-                traceback_type = response.traceback_type
-            raise traceback_type(response.traceback)
+            raise response.traceback_type(response.traceback)
 
         return response
 
     # ------------------------------------------------------------------------------------------------------------------
     def timed_question(self, command, timeout=5.0, *args, **kwargs):
-        # type: (str, float, typing.Union[list, None], typing.Union[dict, None]) -> typing.Union[Response]
+        # type: (str, float, typing.Union[list, None], typing.Union[dict, None]) -> typing.Union[Response, None]
         question = Question(
             dict(Connection='keep-alive'),
             command,

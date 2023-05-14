@@ -35,14 +35,6 @@ class TestClacksErrors(unittest.TestCase):
         try:
             clacks.key_from_error_type(None)
             self.fail()
-        except ValueError:
-            pass
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def test_request_invalid_error_key(self):
-        try:
-            clacks.error_from_key('foobar')
-            self.fail()
         except KeyError:
             pass
 

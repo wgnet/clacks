@@ -18,33 +18,23 @@ import logging
 import unittest
 
 
-_server = None
-_address = None
-_client = None
-
-
 # ----------------------------------------------------------------------------------------------------------------------
 class TestServerInterface(clacks.ServerInterface):
 
     # ------------------------------------------------------------------------------------------------------------------
-    @clacks.decorators.takes({'first': int, 'second': str})
-    def takes(self, first, second):
-        return first, second
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @clacks.decorators.returns(str)
-    def returns(self):
-        return 'string'
-
-    # ------------------------------------------------------------------------------------------------------------------
     @clacks.decorators.returns_status_code
     def returns_status_code(self):
-        return True, 666
+        return None, clacks.ReturnCodes.OK
 
     # ------------------------------------------------------------------------------------------------------------------
     @clacks.decorators.returns_status_code
-    def returns_status_code_bad(self):
-        return True
+    def returns_status_code_bad_value(self):
+        return None
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @clacks.decorators.returns_status_code
+    def returns_status_code_bad_type(self):
+        return None, 'foobar'
 
     # ------------------------------------------------------------------------------------------------------------------
     @clacks.decorators.aka(['PRINCE'])
@@ -53,22 +43,13 @@ class TestServerInterface(clacks.ServerInterface):
 
     # ------------------------------------------------------------------------------------------------------------------
     @clacks.decorators.private
-    def private_fn(self, value):
+    def private_fn(self):
         print('This should not be reachable')
 
     # ------------------------------------------------------------------------------------------------------------------
     @clacks.decorators.fka(['prince'])
     def artist(self):
         return True
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @clacks.decorators.returns(clacks.Response)
-    def returns_response(self):
-        return clacks.Response(
-            header_data=dict(),
-            response='foo bar',
-            code=667,
-        )
 
 
 clacks.register_server_interface_type('decorator_test', TestServerInterface)
@@ -89,6 +70,8 @@ class ClacksTestCase(unittest.TestCase):
         'decorator_test',
     ]
 
+    server_adapters = []
+
     proxy_interfaces = [
         'standard',
         'logging',
@@ -97,6 +80,8 @@ class ClacksTestCase(unittest.TestCase):
 
     rebuild_server = False
 
+    _ADDRESS = _CLIENT = _SERVER = None
+
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self, methodName):
         super(ClacksTestCase, self).__init__(methodName)
@@ -104,115 +89,90 @@ class ClacksTestCase(unittest.TestCase):
         logging.basicConfig()
         logging.getLogger().setLevel(logging.DEBUG)
 
-        # -- initialize everything
-        _ = self.server
-        _ = self.client
-
     # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def tearDownClass(cls):
-        global _server
-        global _address
-        global _client
+    def build_client(self):
+        c = self.build_client_instance()
 
-        if cls.rebuild_server:
-            if _server is not None:
-                _client.disconnect()
-                _server.end()
-
-            _server = None
-            _address = None
-            _client = None
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def setUpClass(cls):
-        global _server
-        global _address
-        global _client
-
-        if cls.rebuild_server:
-            if _server is not None:
-                _client.disconnect()
-                _server.end()
-
-            _server = None
-            _address = None
-            _client = None
-
-        _server, _address = cls.build_server()
-        _client = cls.build_client()
-
-    # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def build_client(cls):
-        c = clacks.ClientProxyBase(_address, clacks.SimpleRequestHandler(clacks.SimplePackageMarshaller()))
-
-        for interface in cls.proxy_interfaces:
+        for interface in self.proxy_interfaces:
             c.register_interface_by_type(interface)
 
         return c
 
     # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def build_server(cls):
-        s = clacks.ServerBase('Unittest Server')
+    def build_client_instance(self):
+        return clacks.ClientProxyBase(self.address, self.create_handler())
 
-        for interface in cls.server_interfaces:
+    # ------------------------------------------------------------------------------------------------------------------
+    def build_server_instance(self):
+        return clacks.ServerBase('Unittest Server')
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def build_server(self):
+        s = self.build_server_instance()
+
+        for interface in self.server_interfaces:
             s.register_interface_by_key(interface)
 
-        a = s.register_handler_by_key('localhost', 0, 'simple', 'simple')
+        for adapter in self.server_adapters:
+            s.register_adapter_by_key(adapter)
+
+        a = s.register_handler('localhost', 0, self.create_handler())
+
         s.start(blocking=False)
 
         return s, a
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
+    def address(self):
+        if self._SERVER is not None:
+            return self._ADDRESS
+        self._SERVER, self._ADDRESS = self.build_server()
+        return self._ADDRESS
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
     def server(self):
-        global _server
-        global _address
-
-        if _server is not None:
-            return _server
-
-        _server, _address = self.build_server()
-        return _server
+        if self._SERVER is not None:
+            return self._SERVER
+        self._SERVER, self._ADDRESS = self.build_server()
+        return self._SERVER
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
     def client(self):
-        global _client
+        if self._CLIENT is not None:
+            return self._CLIENT
 
-        if _client is not None:
-            return _client
-
-        _client = self.build_client()
-
-        return _client
+        self._CLIENT = self.build_client()
+        return self._CLIENT
 
     # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def get_server_instance(cls):
+    @property
+    def interface(self):
+        return self.server.interfaces['standard']
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def get_server_instance(self):
         server = clacks.ServerBase(identifier='Test Server')
 
-        for interface in cls.server_interfaces:
+        for interface in self.server_interfaces:
             server.register_interface_by_key(interface)
 
-        handler = cls.handler_type(cls.marshaller_type())
+        handler = self.create_handler()
         host, port = 'localhost', clacks.get_new_port('localhost')
 
         server.register_handler(host, port, handler)
         return server, (host, port)
 
     # ------------------------------------------------------------------------------------------------------------------
-    @classmethod
-    def get_client_instance(cls, address):
+    def get_client_instance(self, address):
         client = clacks.ClientProxyBase(
             address,
-            handler=cls.handler_type(cls.marshaller_type())
+            handler=self.create_handler()
         )
 
-        for interface in cls.proxy_interfaces:
+        for interface in self.proxy_interfaces:
             client.register_interface_by_type(interface)
 
         client.register_interface_by_type('standard')
@@ -221,7 +181,9 @@ class ClacksTestCase(unittest.TestCase):
     # ------------------------------------------------------------------------------------------------------------------
     @classmethod
     def create_handler(cls):
-        return cls.handler_type(cls.marshaller_type())
+        handler = cls.handler_type(cls.marshaller_type())
+        handler._initialize(cls)
+        return handler
 
     # ------------------------------------------------------------------------------------------------------------------
     @classmethod

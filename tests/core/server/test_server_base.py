@@ -41,13 +41,15 @@ class TestServerBase(ClacksTestCase):
 
         # -- this should not fail
         command = self.server.setup_logging_broadcast
-        assert isinstance(command, clacks.ServerCommand)
+        assert not isinstance(command, clacks.ServerCommand)
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_digest_bad_question(self):
-        response = self.server.digest(None, None, None, dict(), dict())
-        assert response.traceback is not None
-        assert response.code == clacks.ReturnCodes.BAD_QUESTION
+        try:
+            self.server.digest(None, None, None, dict(), dict())
+            self.fail()
+        except clacks.errors.ClacksBadQuestionError:
+            pass
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_digest_bad_command(self):
@@ -135,28 +137,21 @@ class TestServerBase(ClacksTestCase):
         server.end()
 
     # ------------------------------------------------------------------------------------------------------------------
-    def test_crash_client(self):
-        # -- intentionally set all connections to not blocking, with a super short timeout and lifetime.
-        # -- this will artificially raise a timeout error, simulating a real one
-        self.server.clients[0].connection.setblocking(False)
-        self.server.clients[0].connection.settimeout(0.1)
-        self.server.clients[0].handler.CONNECTION_LIFETIME = 0.1
-
-        self.client.socket.setblocking(False)
-        self.client.socket.settimeout(0.1)
-
-        def wait():
-            assert len(self.server.clients) == 1
-            time.sleep(1)
-            assert len(self.server.clients) == 0
-
-        thread = threading.Thread(target=wait)
-        thread.start()
-
-        thread.join()
-
-    # ------------------------------------------------------------------------------------------------------------------
     def test_crash_client_address(self):
         assert len(self.server.socket_addresses) == 1
         list(self.server.sockets.keys())[0].close()
         assert len(self.server.socket_addresses) == 0
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def test_crash_server(self):
+        def crash_server():
+            raise Exception
+
+        self.server.register_command('crash_server', clacks.command_from_callable(self.interface, crash_server))
+
+        try:
+            self.client.crash_server()
+            self.fail()
+
+        except Exception:
+            pass

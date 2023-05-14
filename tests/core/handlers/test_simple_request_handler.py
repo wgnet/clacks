@@ -14,11 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import clacks
+import random
 import unittest
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 class TestSimpleRequestHandler(unittest.TestCase):
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @classmethod
+    def bad_question(cls):
+        keys = list([random.random() for i in range(10)])
+        values = list([random.random() for i in range(10)])
+
+        value = dict()
+        for i in range(len(keys)):
+            value[keys[i]] = values[i]
+
+        return clacks.package.Package(value)
 
     # ------------------------------------------------------------------------------------------------------------------
     @classmethod
@@ -30,8 +43,27 @@ class TestSimpleRequestHandler(unittest.TestCase):
         )
 
     # ------------------------------------------------------------------------------------------------------------------
+    def test_bad_package(self):
+        handler = clacks.handler.SimpleRequestHandler(clacks.SimplePackageMarshaller())
+        handler._initialize(self)
+
+        try:
+            _ = handler.get_content_length('', self.bad_question())
+            self.fail()
+        except ValueError:
+            pass
+
+        try:
+            # -- length doesn't really matter - this should fail anyway
+            _ = handler.encode_question_header('UNITTEST', self.bad_question(), 0)
+            self.fail()
+        except ValueError:
+            pass
+
+    # ------------------------------------------------------------------------------------------------------------------
     def test_encode_question_header(self):
         handler = clacks.handler.SimpleRequestHandler(clacks.SimplePackageMarshaller())
+        handler._initialize(self)
         length = handler.get_content_length('', self.question())
         response = handler.encode_question_header('UNITTEST', self.question(), length)
         assert isinstance(response, bytes)
@@ -39,6 +71,7 @@ class TestSimpleRequestHandler(unittest.TestCase):
     # ------------------------------------------------------------------------------------------------------------------
     def test_encode_response_header(self):
         handler = clacks.handler.SimpleRequestHandler(clacks.SimplePackageMarshaller())
+        handler._initialize(self)
         length = handler.get_content_length('', self.question())
         response = handler.encode_question_header('UNITTEST', self.question(), length)
         assert isinstance(response, bytes)

@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import typing
 from ..log import get_logger
 from ..utils import is_key_legal
 
@@ -57,7 +58,7 @@ def register_adapter_type(key, adapter_type, override=False):
 
 # ----------------------------------------------------------------------------------------------------------------------
 def adapter_from_key(key):
-    # type: (str) -> type
+    # type: (str) -> typing.Type
     if key in adapter_registry:
         return adapter_registry.get(key)
     raise KeyError('adapter type %s is not registered!' % key)

@@ -56,19 +56,25 @@ def register_error_type(key, error_type, override=False):
 # ----------------------------------------------------------------------------------------------------------------------
 def error_from_key(key):
     # type: (str) -> type
-    if key not in error_registry:
-        raise KeyError(key)
-    return error_registry.get(key)
+    return error_registry.get(key) or Exception
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 def key_from_error_type(error_type):
     # type: (type) -> str
-    for key, value in error_registry.items():
-        if value != error_type:
-            continue
-        return key
-    raise ValueError(error_type)
+    if isinstance(error_type, type):
+        for key, value in error_registry.items():
+            if value != error_type:
+                continue
+            return key
+
+    else:
+        for key, value in error_registry.items():
+            if not isinstance(error_type, value):
+                continue
+            return key
+
+    raise KeyError
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -88,7 +94,6 @@ def error_code_from_error_key(key):
 
 # -- default values that are registered up front
 __defaults = {
-    'exception': Exception,
     'type_error': TypeError,
     'socket_error': socket.error,
     'key_error': KeyError,

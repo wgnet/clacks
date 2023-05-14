@@ -43,71 +43,70 @@ class TestAdapter(clacks.adapters.ServerAdapterBase):
     # ------------------------------------------------------------------------------------------------------------------
     @property
     def all_points_hit(self):
-        print(self.hits)
         return all(self.hits.values())
 
     # ------------------------------------------------------------------------------------------------------------------
-    def server_pre_digest(self, handler, connection, transaction_id, header_data, data):
+    def server_pre_digest(self, server, handler, connection, transaction_id, header_data, data):
         self.hits['server_pre_digest'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def server_post_digest(self, handler, connection, transaction_id, header_data, data, response):
+    def server_post_digest(self, server, handler, connection, transaction_id, header_data, data, response):
         self.hits['server_post_digest'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def server_pre_add_to_queue(self, handler, connection, transaction_id, header_data, data):
+    def server_pre_add_to_queue(self, server, handler, connection, transaction_id, header_data, data):
         self.hits['server_pre_add_to_queue'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def server_post_remove_from_queue(self, handler, connection, transaction_id, header_data, data):
+    def server_post_remove_from_queue(self, server, handler, connection, transaction_id, header_data, data):
         self.hits['server_post_remove_from_queue'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_pre_receive_header(self, transaction_id):
+    def handler_pre_receive_header(self, server, handler, transaction_id):
         self.hits['handler_pre_receive_header'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_post_receive_header(self, transaction_id, header_data):
+    def handler_post_receive_header(self, server, handler, transaction_id, header_data):
         self.hits['handler_post_receive_header'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_pre_receive_content(self, transaction_id, header_data):
+    def handler_pre_receive_content(self, server, handler, transaction_id, header_data):
         self.hits['handler_pre_receive_content'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_post_receive_content(self, transaction_id, header_data, content_data):
+    def handler_post_receive_content(self, server, handler, transaction_id, header_data, content_data):
         self.hits['handler_post_receive_content'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_pre_compile_buffer(self, transaction_id, package):
+    def handler_pre_compile_buffer(self, server, handler, transaction_id, package):
         self.hits['handler_pre_compile_buffer'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_post_compile_buffer(self, transaction_id, package):
+    def handler_post_compile_buffer(self, server, handler, transaction_id, package):
         self.hits['handler_post_compile_buffer'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_pre_respond(self, connection, transaction_id, package):
+    def handler_pre_respond(self, server, handler, connection, transaction_id, package):
         self.hits['handler_pre_respond'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def handler_post_respond(self, connection, transaction_id, package):
+    def handler_post_respond(self, server, handler, connection, transaction_id, package):
         self.hits['handler_post_respond'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def marshaller_pre_encode_package(self, transaction_id, package):
+    def marshaller_pre_encode_package(self, server, handler, marshaller, transaction_id, package):
         self.hits['marshaller_pre_encode_package'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def marshaller_post_encode_package(self, transaction_id, byte_buffer):
+    def marshaller_post_encode_package(self, server, handler, marshaller, transaction_id, byte_buffer):
         self.hits['marshaller_post_encode_package'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def marshaller_pre_decode_package(self, transaction_id, header_data, payload):
+    def marshaller_pre_decode_package(self, server, handler, marshaller, transaction_id, header_data, payload):
         self.hits['marshaller_pre_decode_package'] += 1
 
     # ------------------------------------------------------------------------------------------------------------------
-    def marshaller_post_decode_package(self, transaction_id, byte_buffer):
+    def marshaller_post_decode_package(self, server, handler, marshaller, transaction_id, byte_buffer):
         self.hits['marshaller_post_decode_package'] += 1
 
 
@@ -124,5 +123,6 @@ class TestServerAdapter(ClacksTestCase):
         methods = self.client.list_commands().response
         for method in methods:
             info = self.client.command_info(method)
+            print(info)
 
         assert adapter.all_points_hit is True

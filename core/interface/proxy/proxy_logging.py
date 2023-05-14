@@ -14,12 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import io
-import typing
-
 from ..base import ServerInterface
-from ..constants import register_proxy_interface_type
-from ...command.decorators import returns, takes
 from ...utils import StreamingSocketReceiver
+from ..constants import register_proxy_interface_type
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -37,15 +34,11 @@ class ProxyLoggingInterface(ServerInterface):
         self.stream.stop()
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'host': str, 'port': int, 'stream': io.FileIO})
-    def setup_receiver_stream(self, host, port, stream):
+    def setup_receiver_stream(self, host: str, port: int, stream: io.FileIO):
         self.stream = StreamingSocketReceiver((host, port), stream)
 
     # ------------------------------------------------------------------------------------------------------------------
-    @takes({'host': str})
-    @returns(tuple)
-    def setup_logging_broadcast(self, host):
-        # type: (str) -> typing.Tuple[str, int]
+    def setup_logging_broadcast(self, host: str) -> tuple:
         return self.server.question('setup_logging_broadcast', host)
 
 

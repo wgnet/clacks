@@ -1,3 +1,5 @@
+```pip install git+https://github.com/MaVCArt/clacks.git@main```
+
 # clacks
 
 ---
@@ -171,7 +173,10 @@ Servers implement commands that trigger the behaviour triggered by Questions.
 Servers are expected to respond with Answers for the Handlers to send back.
 ```
 
-Implementing a server can be done without needing to override a single internal method. In most cases, overriding server methods should not be necessary; creating functionaly is all done using `interfaces`, so unless you wish to change or override a very low-level behaviour of how the server works, (like how it executes commands), you should not need to override any internal methods.
+Implementing a server can be done without needing to override a single internal method. In most cases, overriding server
+methods should not be necessary; creating functionality is all done using `interfaces`, so unless you wish to change 
+or override a very low-level behaviour of how the server works, (like how it executes commands), 
+you should not need to override any internal methods.
 
 ```python
 import clacks
@@ -192,21 +197,38 @@ server.start(blocking=False)
 
 #### Interfaces
 
-`Interfaces` are the convenience path that `clacks` provides for developers to quickly scale the functionality available to a given server, while allowing for easy re-use of that functionality, as well.
+`Interfaces` are the convenience path that `clacks` provides for developers to quickly scale the functionality 
+available to a given server, while allowing for easy re-use of that functionality, as well.
 
-`Interfaces` are relatively simple, mostly self-contained (though this is not a defining property) collections of functions that a server can make use of. Some of these are exposed as publicly-accessible `ServerCommands`, while others, decorated with the `@clacks.private` decorator, can only be used by the server and its interfaces, while being inaccessible to clients.
+`Interfaces` are relatively simple, mostly self-contained (though this is not a defining property) collections 
+of functions that a server can make use of. Some of these are exposed as publicly-accessible `ServerCommands`, 
+while others, decorated with the `@clacks.private` decorator, can only be used by the server and its interfaces, 
+while being inaccessible to clients.
 
-When an `interface` is registered, the server will iterate over all the keys in its `__dict__` attribute, and register any values it finds that are callable as functions, as `ServerCommands`. This includes commands decorated with the `private` decorator, which are still registered as fully valid `ServerCommand` instances for use by the server itself and any sibling interfaces.
+When an `interface` is registered, the server will iterate over all the keys in its `__dict__` attribute, 
+and register any values it finds that are callable as functions, as `ServerCommands`. This includes commands 
+decorated with the `private` decorator, which are still registered as fully valid `ServerCommand` instances for use 
+by the server itself and any sibling interfaces.
 
-`Interfaces` are expected to internalize their functionality as much as is feasible, though interface-inter-dependencies are possible. The developer is expected to manage these, as the framework does not (as yet) implement any functionality to expose a list of dependent interfaces when registering an interface.
+`Interfaces` are expected to internalize their functionality as much as is feasible, though interface-inter-dependencies
+are possible. The developer is expected to manage these, as the framework does not (as yet) implement any 
+functionality to expose a list of dependent interfaces when registering an interface.
 
 ---
 
 ### Server Commands
 
-The `ServerCommand` class is where `clacks`' functionality is implemented. While `interfaces` might provide them in the first place, `ServerCommand`s are how the server knows what to do with them. For each `interface` a `server` registers, it fetches all that interface's callable methods, and registers them to the server as a `ServerCommand` instance, along with any annotations the developer may have provided in the form of `command decorators`.
+The `ServerCommand` class is where `clacks`' functionality is implemented. While `interfaces` might provide them 
+in the first place, `ServerCommand`s are how the server knows what to do with them. For each `interface` a `server` 
+registers, it fetches all that interface's callable methods, and registers them to the server as a `ServerCommand` 
+instance, along with any annotations the developer may have provided in the form of `command decorators`.
 
-These annotations are optional; a developer can implement a perfectly functional interface without ever decorating a single method. However, due to the additional information these decorators can provide, a developer can leverage them to provide otherwise tricky-to-implement behaviour. The most common and obvious use case for this behaviour is type checking and enforcement; using `ServerCommand` decorations, we can easily implement an argument processor / return value processor that raises an exception if the incoming or outgoing data does not follow a particular rule, like it needing to be of a very specific variable type.
+These annotations are optional; a developer can implement a perfectly functional interface without ever decorating a 
+single method. However, due to the additional information these decorators can provide, a developer can leverage them 
+to provide otherwise tricky-to-implement behaviour. The most common and obvious use case for this behaviour is type 
+checking and enforcement; using `ServerCommand` decorations, we can easily implement an argument processor / return 
+value processor that raises an exception if the incoming or outgoing data does not follow a particular rule, like it 
+needing to be of a very specific variable type.
 
 A typical server command may be implemented as follows:
 
@@ -226,45 +248,62 @@ def server_command_example(value, other_value):
 And registered like so:
 
 ```python
-server = clacks.ServerBase('My Server')
 server.register_command('server_command_example', server_command_example)
 ```
 
-However, note that since we provide an arbitrary string as the lookup key for the server command, one can theoretically register a command under a different key:
+However, note that since we provide an arbitrary string as the lookup key for the server command, one can theoretically
+register a command under a different key:
 
 ```python
 server.register_command('this_works_too', server_command_example)
 ```
 
-**note**, that every mechanism that makes use of lookup keys in `clacks` enforces a string object-name-compatible validation check. This means that only alphanumeric characters (no whitespaces) are allowed to be used for server command keys.
+**note**, that every mechanism that makes use of lookup keys in `clacks` enforces a string object-name-compatible 
+validation check. This means that only alphanumeric characters (no whitespaces) are allowed to be used for server 
+command keys.
 
-This is done to ensure that servers can acquire command instances using their __getattr__ method, allowing commands to be retrieved using the regular "object.property" mechanism, which is designed for use by sibling server interfaces.
+This is done to ensure that servers can acquire command instances using their __getattr__ method, allowing commands
+to be retrieved using the regular "object.property" mechanism, which is designed for use by sibling server interfaces.
 
 ##### Command Decorators
 
-`clacks` ships with a set of command decorators we can use to decorate `server commands`, that tell the server something about them. In and of themselves, these decorators provide little more than convenience, but they do open the door to nice, but otherwise difficult features, such as argument type enforcement.
+`clacks` ships with a set of command decorators we can use to decorate `server commands`, that tell the server something
+about them. In and of themselves, these decorators provide little more than convenience, but they do open the 
+door to nice, but otherwise difficult features, such as argument type enforcement.
 
-Additionally, `ServerCommands` make use of these decorators to construct the output of their `help()` method, which a developer can call to find out more about the method. This provides a nice utility to create accessible APIs, especially when using clacks in the context of REST APIs.
+Additionally, `ServerCommands` make use of these decorators to construct the output of their `help()` method, 
+which a developer can call to find out more about the method. This provides a nice utility to create accessible APIs, 
+especially when using clacks in the context of REST APIs.
 
-The available decorators are as follows:
+The available standard decorators are as follows:
 
 ```aka```
 
-the **aka**, or "also known as" decorator tells the server that this command should be exposed under more than one name. This allows the developer to expose the same methods under different names, to make it easier to implement features for APIs and protocols that enforce their own rules for method names (like the HTTP protocol, where all command names are upper case, like POST, GET, PUT etc...)
+the **aka**, or "also known as" decorator tells the server that this command should be exposed under more than one name.
+This allows the developer to expose the same methods under different names, to make it easier to implement features
+for APIs and protocols that enforce their own rules for method names 
+(like the HTTP protocol, where all command names are upper case, like POST, GET, PUT etc...)
 
 ```fka```
 
-**fka**, or "formerly known as" is the previous decorator's antithesis; methods decorated with this decorator can tell the server to register the given aliases as fully functional commands, but any commands called under those names will receive a logging warning that the invoked command is due to be deprecated. This makes it slightly easier to implement servers with pending API changes.
-
-```takes```
-
-```returns```
+**fka**, or "formerly known as" is the previous decorator's antithesis; methods decorated with this decorator
+can tell the server to register the given aliases as fully functional commands, but any commands called 
+under those names will receive a logging warning that the invoked command is due to be deprecated. 
+This makes it slightly easier to implement servers with pending API changes.
 
 ```private```
 
-```process_arguments```
+**private** commands are not accessible on the server as publicly callable commands. However, they may be called
+by sibling interfaces parented to the same server. This allows for the creation of methods that can provide utility
+to the interface developer without needing to worry about its visibility.
 
-```process_result```
+It is worth mentioning that private methods are _visible_ to the user. They are registered as full ServerCommand 
+instances, but calling them remotely results in an error.
+
+```hidden```
+
+**hidden** commands go one step further than **private** ones. Hidden commands are only visible to the interface that
+declares them, and are not registered as ServerCommands, and therefore not easily accessible on the server.
 
 ---
 
@@ -292,14 +331,21 @@ HTML, RPyC, XML, JSON, and others that govern the logistics of data transfer are
 
 A typical handler implements only one important mechanism, formed of two keys components:
 
-- It pre-declares to the receiving handler some metadata (like the number of bytes) about the content it is about to send. This allows the receiver to modify its behaviour based on the expected incoming data.
-- It implements the key components of the major data transfer protocols, like HTTP or XMLRPC. This is usually done in the form of some kind of recognized data structure in the header buffer, followed by a delimiter.
+- It pre-declares to the receiving handler some metadata (like the number of bytes) about the content it is about to 
+  send. This allows the receiver to modify its behaviour based on the expected incoming data.
 
-In some cases, no delimiter is used; instead, a header is expected to have a certain fixed size, say, 64 bytes for example. The sending handler is expected to pad any empty space, while the receiver will blindly receive that many bytes. In most cases, the header is the primary method by which we teach `clacks` to "speak" different protocols.
+- It implements the key components of the major data transfer protocols, like HTTP or XMLRPC. 
+  This is usually done in the form of some kind of recognized data structure in the header buffer, followed 
+  by a delimiter.
+
+In some cases, no delimiter is used; instead, a header is expected to have a certain fixed size, say, 64 bytes for 
+example. The sending handler is expected to pad any empty space, while the receiver will blindly receive that 
+many bytes. In most cases, the header is the primary method by which we teach `clacks` to "speak" different protocols.
 
 ```
 Note: there are currently no available clacks mechanisms to detect a handler type from a port.
-If you try to make a proxy talk to a server using different handlers, you will simply get a low-level handler or marshaller error.
+If you try to make a proxy talk to a server using different handlers, you will simply get a low-level handler
+or marshaller error.
 
 The same notice is valid for proxy/server combinations with mismatching marshallers, even if their handlers match.
 ```
@@ -316,20 +362,28 @@ clacks servers can behave as multiple server types as once; by the time the pack
 the data has been standardized into a bog-standard Dictionary, which acts as a keyword argument container for the method
 the user wants to call.
 
-`Marshallers` are the bread and butter of how data makes it from a proxy to a server and vice versa: they turn Package instances into Bytes, and Back.
+`Marshallers` are the bread and butter of how data makes it from a proxy to a server and vice versa: 
+they turn Package instances into Bytes, and Back.
 
 ```
-Note: Adapters can implement post- and pre-buffer-compile steps that could be used to implement content encryption, while leaving header data unencrypted. Additionally, this step could be used to supply compression, which could reduce the strain on socket traffic at the expense of computation on the server.
-```
-
-```
-While it is possible to send content of any size, it is strongly discouraged to use marshallers to transfer large files from a proxy to a server. The marshaller could be prone to data corruption, depending on its implementation, and it would create a large computational overhead to compile and send a buffer that large.
-
-Instead, clacks is shipped with a "file_io" interface that implements proxy/client streaming sockets which use streaming to avoid hogging memory on the server machine, and which does not risk data corruption, as the data is transfered as raw bytes, unencoded.
+Note: Adapters can implement post- and pre-buffer-compile steps that could be used to implement content encryption, 
+while leaving header data unencrypted. Additionally, this step could be used to supply compression, which could reduce 
+the strain on socket traffic at the expense of computation on the server.
 ```
 
 ```
-Note: the developer is expected to know which marshaller type to use when connecting a proxy to a server. There are currently no mechanisms to allow clacks to detect the handler/marshaller setup of a particular port.
+While it is possible to send content of any size, it is strongly discouraged to use marshallers to transfer 
+large files from a proxy to a server. The marshaller could be prone to data corruption, depending on its implementation,
+ and it would create a large computational overhead to compile and send a buffer that large.
+
+Instead, clacks is shipped with a "file_io" interface that implements proxy/client streaming sockets which use 
+streaming to avoid hogging memory on the server machine, and which does not risk data corruption, as the data
+is transfered as raw bytes, unencoded.
+```
+
+```
+Note: the developer is expected to know which marshaller type to use when connecting a proxy to a server. 
+There are currently no mechanisms to allow clacks to detect the handler/marshaller setup of a particular port.
 ```
 
 ---

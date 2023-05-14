@@ -27,6 +27,11 @@ server_interface_registry = {}
 
 
 # ----------------------------------------------------------------------------------------------------------------------
+def list_available_server_interface_types():
+    return sorted(list(set(server_interface_registry.keys())))
+
+
+# ----------------------------------------------------------------------------------------------------------------------
 def register_server_interface_type(key, interface_type, override=False):
     # type: (str, type, bool) -> None
     global server_interface_registry
@@ -62,7 +67,8 @@ def server_interface_from_type(key):
     # type: (str) -> type
     if server_interface_registry.get(key):
         return server_interface_registry.get(key)
-    raise KeyError('Server Interface type %s is not registered!' % key)
+    raise KeyError(f'Server Interface type {key} is not registered!\n'
+                   f'Registered interface types: {server_interface_registry.keys()}')
 
 
 # -- this type of registry implementation follows the standard set by RPyC

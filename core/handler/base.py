@@ -13,25 +13,20 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import collections
-import logging
-import socket
-import sys
-import time
-import traceback
-import typing
 import uuid
+import time
+import typing
+import socket
+import logging
+import traceback
+import collections
 
 from .constants import HandlerErrors
 from ..constants import LOG_MSG_LENGTH
-from ..errors import ClacksClientConnectionFailedError
 from ..errors.codes import ReturnCodes
 from ..marshaller import BasePackageMarshaller
 from ..package import Package, Question, Response
-
-_unicode = bytes
-if sys.version_info.major == 2:
-    _unicode = unicode
+from ..errors import ClacksClientConnectionFailedError
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -60,6 +55,8 @@ class BaseRequestHandler(object):
     # -- transfer speed is a minimum of 16384 bytes per package
     BUFFER_SIZE = 16384
 
+    _REQUIRED_ADAPTERS: list[str] = []
+
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self, marshaller, server=None):
         """
@@ -74,6 +71,9 @@ class BaseRequestHandler(object):
         :type server: BaseServer
 
         """
+        self.parent = None
+        self._initialized = False
+
         self.marshaller = marshaller
 
         # -- in case a handler is ever instantiated but never registered to a server, the DummyServer class
@@ -88,12 +88,14 @@ class BaseRequestHandler(object):
 
         self.adapters = list()
 
+        for key in self._REQUIRED_ADAPTERS:
+            self.register_adapter_by_key(key)
+
         # -- list of currently running transactions
         self.transaction_cache = dict()
 
     # ------------------------------------------------------------------------------------------------------------------
-    def _initialize(self):
-        # type: () -> bool
+    def _initialize(self, parent):
         """
         This method is called just before the server is started - this gives handlers, adapters and interfaces the
         opportunity to do some last-minute changes and resource gathering.
@@ -101,12 +103,17 @@ class BaseRequestHandler(object):
         :return: True if successful, if False, the server will not be started.
         :rtype: bool
         """
+        self.parent = parent
+        success = True
+
         self.marshaller.register_handler(self)
 
         for adapter in self.adapters:
-            adapter._initialize()
+            success = success or adapter._initialize(self)
 
-        return True
+        self._initialized = success
+
+        return success
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
@@ -114,7 +121,7 @@ class BaseRequestHandler(object):
         return self.server.logger
 
     # ------------------------------------------------------------------------------------------------------------------
-    def register_adapter(self, adapter):
+    def register_adapter(self, adapter: typing.Type):
         from ..adapters import ServerAdapterBase
 
         if not isinstance(adapter, ServerAdapterBase):
@@ -122,6 +129,12 @@ class BaseRequestHandler(object):
 
         self.adapters.append(adapter)
         self.marshaller.register_adapter(adapter)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def register_adapter_by_key(self, adapter_key):
+        from ..adapters import adapter_from_key
+        adapter = adapter_from_key(adapter_key)
+        self.register_adapter(adapter())
 
     # ------------------------------------------------------------------------------------------------------------------
     def accept_socket(self, sock):
@@ -166,6 +179,13 @@ class BaseRequestHandler(object):
 
         :return: None
         """
+        if self.server is not None and server is not self.server and not isinstance(self.server, _DummyServer):
+            # -- raise this exception for safety - handlers really should not be registered on more than one server.
+            raise ValueError(
+                f'This handler is already registered to server {self.server}.'
+                '\nFor safety purposes, you should not register the same handler on more than one server!'
+            )
+
         self.server = server
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -196,6 +216,9 @@ class BaseRequestHandler(object):
         :return: ordered dictionary containing the header data
         :rtype: collections.OrderedDict
         """
+        if not payload.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {payload}!')
+
         header_data = collections.OrderedDict()
         if payload.header_data:
             header_data.update(payload.header_data)
@@ -311,6 +334,9 @@ class BaseRequestHandler(object):
         :return: nr of bytes that would result if we were to marshal the payload to a byte sequence.
         :rtype: int
         """
+        if not payload.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {payload}!')
+
         bytes_data = self.marshaller.encode_package(transaction_id, payload)
         return len(bytes_data)
 
@@ -325,6 +351,9 @@ class BaseRequestHandler(object):
 
         :return: None
         """
+        if not self._initialized:
+            raise Exception(f'Handler {self} has not been initialized!')
+
         if connection not in self.timestamps:
             self.timestamps[connection] = time.time()
 
@@ -419,7 +448,7 @@ class BaseRequestHandler(object):
         :rtype: tuple
         """
         for adapter in self.adapters:
-            adapter.handler_pre_receive_header(transaction_id)
+            adapter.handler_pre_receive_header(self.server, self, transaction_id)
 
         header_buffer = b''
         header_received = False
@@ -461,7 +490,7 @@ class BaseRequestHandler(object):
         # -- may insert information in incoming headers, or trace header data per transaction using the transaction id.
         # -- this last bit is useful when doing things like profiling.
         for adapter in self.adapters:
-            adapter.handler_post_receive_header(transaction_id, header_data)
+            adapter.handler_post_receive_header(self.server, self, transaction_id, header_data)
 
         return header_buffer, header_data
 
@@ -487,7 +516,7 @@ class BaseRequestHandler(object):
         :rtype: tuple
         """
         for adapter in self.adapters:
-            adapter.handler_pre_receive_content(transaction_id, header_data)
+            adapter.handler_pre_receive_content(self.server, self, transaction_id, header_data)
 
         _received = 0
         _remaining = content_length
@@ -510,7 +539,7 @@ class BaseRequestHandler(object):
 
         # -- run all handler adapters' "receive content" method on the received data.
         for adapter in self.adapters:
-            adapter.handler_post_receive_content(transaction_id, header_data, content_data)
+            adapter.handler_post_receive_content(self.server, self, transaction_id, header_data, content_data)
 
         return content_buffer, content_data
 
@@ -573,11 +602,14 @@ class BaseRequestHandler(object):
         :return: compile a package response buffer, triggering the marshalling method.
         :rtype: bytes
         """
+        if not package.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {package}!')
+
         self.server.logger.debug('Building buffer...')
 
         # -- give adapters the chance to trigger any callbacks or make changes to package pre-compile
         for adapter in self.adapters:
-            adapter.handler_pre_compile_buffer(transaction_id, package)
+            adapter.handler_pre_compile_buffer(self.server, self, transaction_id, package)
 
         bytes_data = None
         try:
@@ -622,7 +654,7 @@ class BaseRequestHandler(object):
 
         # -- give adapters the chance to trigger any callbacks or make changes to packages pre-compile
         for adapter in self.adapters:
-            adapter.handler_post_compile_buffer(transaction_id, package)
+            adapter.handler_post_compile_buffer(self.server, self, transaction_id, package)
 
         return _buffer
 
@@ -643,6 +675,9 @@ class BaseRequestHandler(object):
 
         :return: None
         """
+        if not package.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {package}!')
+
         if not isinstance(package, Package):
             raise TypeError('Cannot send pure data - all packages must inherit from Package! Got %s' % type(package))
 
@@ -670,9 +705,12 @@ class BaseRequestHandler(object):
 
         :return: None
         """
+        if not response.is_valid:
+            raise ValueError(f'Invalid Package instance provided: {response}!')
+
         # -- give adapters the chance to trigger any callbacks or make changes to packages pre-send
         for adapter in self.adapters:
-            adapter.handler_pre_respond(connection, transaction_id, response)
+            adapter.handler_pre_respond(self.server, self, connection, transaction_id, response)
 
         # -- log response, so we know what came out (and if we got stuck somewhere)
         self.logger.debug('Response: {response}...'.format(response=str(response)[:LOG_MSG_LENGTH]))
@@ -685,4 +723,4 @@ class BaseRequestHandler(object):
 
         # -- give adapters the chance to trigger any callbacks or make changes to packages post-send
         for adapter in self.adapters:
-            adapter.handler_post_respond(connection, transaction_id, response)
+            adapter.handler_post_respond(self.server, self, connection, transaction_id, response)
