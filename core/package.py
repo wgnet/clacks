@@ -99,6 +99,8 @@ class Question(Package):
             return False
         if 'command' not in self.payload:
             return False
+        if not self.command:
+            return False
         return True
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -120,7 +122,7 @@ class Question(Package):
 
         return Question(
             header_data,
-            data['command'],
+            data.get('command'),
             *data.get('args', list()),
             **data.get('kwargs', dict())
         )

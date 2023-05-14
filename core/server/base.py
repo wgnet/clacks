@@ -23,8 +23,8 @@ import threading
 import traceback
 
 from ..constants import LOG_MSG_LENGTH
-from ..errors.codes import ReturnCodes
 from ..package import Question, Response
+from ..errors import ClacksBadQuestionError
 from ..marshaller import marshaller_from_key
 from ..interface.base import ServerInterface
 from ..utils import get_new_port, is_key_legal
@@ -32,7 +32,7 @@ from ..adapters import ServerAdapterBase, adapter_from_key
 from ..handler import BaseRequestHandler, handler_from_key
 from ..interface.constants import server_interface_from_type
 from ..errors import ClacksClientConnectionFailedError, error_code_from_error
-from ..command import ServerCommand, ServerCommandDigestLoggingHandler, command_from_callable
+from ..command import ServerCommand, ServerCommandDigestLoggingHandler
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -574,6 +574,9 @@ class ServerBase(object):
 
             response.accept_encoding = header_data.get('Accept-Encoding', 'text/json')
             return response
+
+        if not question.is_valid:
+            raise ClacksBadQuestionError(f'No valid question could be loaded from {data}!')
 
         try:
             cmd = self.get_command(question.command)

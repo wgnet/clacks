@@ -45,9 +45,11 @@ class TestServerBase(ClacksTestCase):
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_digest_bad_question(self):
-        response = self.server.digest(None, None, None, dict(), dict())
-        assert response.traceback is not None
-        assert response.code == clacks.ReturnCodes.BAD_QUESTION
+        try:
+            self.server.digest(None, None, None, dict(), dict())
+            self.fail()
+        except clacks.errors.ClacksBadQuestionError:
+            pass
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_digest_bad_command(self):

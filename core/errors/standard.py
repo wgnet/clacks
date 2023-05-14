@@ -81,6 +81,19 @@ class ClacksBadResponseError(ClacksCommandErrorBaseBase):
     code = ReturnCodes.BAD_RESPONSE
 
 
+register_error_type(ClacksBadResponseError.key, ClacksBadResponseError)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+class ClacksBadQuestionError(ClacksCommandErrorBaseBase):
+    key = 'clacks_bad_question'
+    label = 'Bad Question'
+    code = ReturnCodes.BAD_QUESTION
+
+
+register_error_type(ClacksBadQuestionError.key, ClacksBadQuestionError)
+
+
 # ----------------------------------------------------------------------------------------------------------------------
 class ClacksBadCommandArgsError(ClacksCommandErrorBaseBase):
     key = 'clacks_bad_command_args'

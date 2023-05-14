@@ -31,13 +31,13 @@ class TestCommandDecorators(ClacksTestCase):
         try:
             _ = self.client.returns_status_code_bad_value()
             self.fail()
-        except TypeError:
+        except clacks.errors.ClacksBadResponseError:
             pass
 
         try:
             _ = self.client.returns_status_code_bad_type()
             self.fail()
-        except TypeError:
+        except clacks.errors.ClacksBadResponseError:
             pass
 
     # ------------------------------------------------------------------------------------------------------------------
