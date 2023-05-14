@@ -24,15 +24,15 @@ import traceback
 
 from ..constants import LOG_MSG_LENGTH
 from ..package import Question, Response
-from ..errors import ClacksBadQuestionError
 from ..marshaller import marshaller_from_key
 from ..interface.base import ServerInterface
 from ..utils import get_new_port, is_key_legal
 from ..adapters import ServerAdapterBase, adapter_from_key
 from ..handler import BaseRequestHandler, handler_from_key
 from ..interface.constants import server_interface_from_type
-from ..errors import ClacksClientConnectionFailedError, error_code_from_error
 from ..command import ServerCommand, ServerCommandDigestLoggingHandler
+from ..errors import ClacksBadQuestionError, ClacksCommandNotFoundError
+from ..errors import ClacksClientConnectionFailedError, error_code_from_error
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -46,7 +46,7 @@ def overrideable(fn):
         _fn = fn
         redirected = False
 
-        for interface in server.interfaces.values():
+        for interface in sorted(server.interfaces.values()):
             if hasattr(interface, fn.__name__):
                 _fn = getattr(interface, fn.__name__)
                 redirected = True
@@ -186,7 +186,7 @@ class ServerBase(object):
             return super(ServerBase, self).__getattribute__(item)
 
         # -- by interjecting this, we redirect any "inherited" commands, so that interfaces may override methods.
-        for interface in self.interfaces.values():
+        for interface in sorted(self.interfaces.values()):
             if hasattr(interface, item):
                 return getattr(interface, item)
 
@@ -916,6 +916,8 @@ class ServerBase(object):
         :return: ServerCommand instance registered under this key
         :rtype: ServerCommand
         """
+        if key not in self.commands:
+            raise ClacksCommandNotFoundError(f'Command {key} could not be found!')
         return self.commands.get(key)
 
     # ------------------------------------------------------------------------------------------------------------------

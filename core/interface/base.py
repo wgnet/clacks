@@ -20,6 +20,8 @@ from ..command import ServerCommand, is_server_command, command_from_callable
 # ----------------------------------------------------------------------------------------------------------------------
 class ServerInterface(object):
 
+    _PRIORITY = 0
+
     _COMMAND_CLASS = ServerCommand
 
     _COMMON_ATTRIBUTES = {}
@@ -38,6 +40,10 @@ class ServerInterface(object):
 
         if not issubclass(self._COMMAND_CLASS, ServerCommand):
             raise TypeError('All server commands must inherit from the base clacks.ServerCommand class!')
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def __lt__(self, other):
+        return self._PRIORITY < other._PRIORITY
 
     # ------------------------------------------------------------------------------------------------------------------
     def _initialize(self, parent):

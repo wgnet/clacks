@@ -44,7 +44,7 @@ class StandardServerInterface(ServerInterface):
         result = [
             cmd
             for cmd in self.server.commands.keys()
-            if self.server.commands[cmd].get('private') is False
+            if self.server.commands[cmd].get('private', False) is False
         ]
         return sorted(list(result))
 
