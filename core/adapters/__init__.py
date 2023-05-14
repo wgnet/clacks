@@ -15,6 +15,7 @@ limitations under the License.
 """
 from . import gnutp
 from . import profiling
-from . import deprecation_warnings
+from . import status_code
+from . import header_data_as_kwarg
 from .base import ServerAdapterBase
 from .constants import adapter_from_key, register_adapter_type

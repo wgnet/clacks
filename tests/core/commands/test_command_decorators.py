@@ -20,22 +20,24 @@ from clacks.tests import ClacksTestCase
 # ----------------------------------------------------------------------------------------------------------------------
 class TestCommandDecorators(ClacksTestCase):
 
-    # ------------------------------------------------------------------------------------------------------------------
-    def test_returns_status_code(self):
-        assert self.client.returns_status_code().response == True
-        assert self.client.returns_status_code().code == 666
-
-        cmd = self.server.returns_status_code
-        assert cmd.returns_status_code
-        assert cmd() == True
+    server_adapters = ['status_code']
 
     # ------------------------------------------------------------------------------------------------------------------
-    def test_returns_status_code_bad(self):
+    def test_return_status_code(self):
+        a = self.client.returns_status_code()
+        assert a.response is None
+        assert a.code is clacks.ReturnCodes.OK
+
         try:
-            self.client.returns_status_code_bad()
+            _ = self.client.returns_status_code_bad_value()
             self.fail()
-        except clacks.errors.ClacksCommandUnexpectedReturnValueError:
-            # -- this is expected to return a ValueError
+        except clacks.errors.ClacksBadResponseError:
+            pass
+
+        try:
+            _ = self.client.returns_status_code_bad_type()
+            self.fail()
+        except clacks.errors.ClacksBadResponseError:
             pass
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -48,16 +50,7 @@ class TestCommandDecorators(ClacksTestCase):
         assert self.client.artist().code == 200
         assert self.client.artist().response is True
         assert self.client.prince().response is True
-        assert self.client.prince().code is clacks.errors.codes.ReturnCodes.DEPRECATED
         assert len(self.client.prince().warnings) > 0
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def test_takes(self):
-        assert len(self.client.takes('first', 2).response) == 2
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def test_returns(self):
-        assert self.client.returns().response == 'string'
 
     # ------------------------------------------------------------------------------------------------------------------
     def test_private(self):
@@ -66,7 +59,3 @@ class TestCommandDecorators(ClacksTestCase):
             self.fail()
         except clacks.errors.ClacksCommandIsPrivateError:
             pass
-
-    # ------------------------------------------------------------------------------------------------------------------
-    def test_returns_response(self):
-        assert self.client.returns_response().code == 667

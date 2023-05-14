@@ -291,16 +291,6 @@ can tell the server to register the given aliases as fully functional commands, 
 under those names will receive a logging warning that the invoked command is due to be deprecated. 
 This makes it slightly easier to implement servers with pending API changes.
 
-```takes```
-
-**takes** is simply a type hinting mechanism. It lets the ServerCommand know which type of argument to expect for each
-named argument provided. This can be achieved using standard Python3 type hinting as well, but for older implementations
-this is a nice convenience method.
-
-```returns```
-
-Another type hinting method; this one just declares the type of the returned value(s) for the server command.
-
 ```private```
 
 **private** commands are not accessible on the server as publicly callable commands. However, they may be called
@@ -314,47 +304,6 @@ instances, but calling them remotely results in an error.
 
 **hidden** commands go one step further than **private** ones. Hidden commands are only visible to the interface that
 declares them, and are not registered as ServerCommands, and therefore not easily accessible on the server.
-
-#### Argument and Result Processors
-
-The `process_arguments` and `process_result` decorators deserve their own section. They provide what effectively amounts
-to pre-and-post-processing of function input and output. This can be quite powerful, as it enables the user to build
-things like filtering and validation mechanisms.
-
-Argument and result processors, can, for example, provide type hint enforcement, result type enforcement, argument
-pre-processing (such as taking incoming JSON data and converting it to keyword arguments), and other types of 
-translation that make mass data handling a little easier.
-
-```process_arguments```
-
-This decorator takes one argument; a list of callables. Each of these callables takes three arguments;
-the server command, the positional arguments (a list) and the keyword arguments (a dictionary) that were passed to the
-function when it was called.
-
-This allows a developer to interject into argument processing and change the arguments as they pass through.
-The expected result of the callable is a tuple of (list, dict) with the positional and keyword arguments as they should
-be passed on to the next processor, or to the server command itself.
-
-A typical argument processor looks a bit like this;
-
-```python
-def example_arg_processor(server_command, *args, **kwargs):
-    # -- do something to the arguments
-    return args, kwargs
-```
-
-```process_result```
-
-Like argument processors, the result processor works the same, but more simply; it simply takes the server command and 
-its returned result, and is able to change that result in some way by returning its own.
-
-A typical result processor looks like this;
-
-```python
-def example_result_processor(server_command, result):
-    # -- do something to the result 
-    return result
-```
 
 ---
 
